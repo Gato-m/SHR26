@@ -12,11 +12,11 @@ export const LightPalette = {
   white: "#F3F4F6",
   black: "#000000",
   text: "#424141",
-  textSecondary: "#f1f1f2",
+  textSecondary: "#838383",
   background: "#e7e7e7",
 };
 export const DarkPalette = {
-  primary: "#3e4353",
+  primary: "#3c4150",
   primaryDark: "#2f3340",
   accent: "#f0983e",
   gray100: "#f4f4f4",
@@ -26,7 +26,7 @@ export const DarkPalette = {
   white: "#F3F4F6",
   black: "#000000",
   text: "#eaeaea",
-  textSecondary: "#f1f1f2",
+  textSecondary: "#a8a8a8",
   background: "#22252b",
 };
 
