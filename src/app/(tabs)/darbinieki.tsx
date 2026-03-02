@@ -211,13 +211,13 @@ export default function DemoScreen() {
                   </ThemedText>
                   <ThemedText
                     type="body"
-                    style={{ color: theme.colors.textSecondary, fontSize: 13 }}
+                    style={{ color: "#888", fontSize: 13 }}
                   >
                     {item.position}
                   </ThemedText>
                   <ThemedText
                     type="body"
-                    style={{ color: theme.colors.textSecondary, fontSize: 13 }}
+                    style={{ color: "#888", fontSize: 13 }}
                   >
                     {item.email}
                   </ThemedText>
