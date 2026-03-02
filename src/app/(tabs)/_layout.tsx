@@ -34,20 +34,20 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="search"
-        options={{
-          title: "Search",
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="search-outline" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="person-outline" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="darbinieki"
+        options={{
+          title: "Darbinieki",
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon name="search-outline" color={color} />
           ),
         }}
       />
