@@ -8,7 +8,6 @@ import {
   ThemedButton,
   ThemedCard,
   ThemedHeader,
-  ThemedSpacer,
   ThemedText,
   ThemedView,
 } from "../../components";
@@ -106,7 +105,7 @@ export default function DemoScreen() {
       try {
         const { data, error } = await supabase
           .from("users")
-          .select("id, name, avatar, position, email");
+          .select("id, name, avatar, position, email, phone");
         if (error) {
           console.error("Error fetching users:", error.message);
         } else {
@@ -130,7 +129,6 @@ export default function DemoScreen() {
         variant="primary"
         onPress={toggle}
       />
-      <ThemedSpacer size="m" />
       <View
         style={{
           flexDirection: "row",
@@ -219,6 +217,7 @@ export default function DemoScreen() {
                     {item.email}
                   </ThemedText>
                 </View>
+                {/* Phone icon at the right */}
                 {item.phone && (
                   <Pressable
                     onPress={() => Linking.openURL(`tel:${item.phone}`)}

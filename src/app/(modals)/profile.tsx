@@ -111,13 +111,13 @@ export default function ProfileModal() {
               {user.name}
             </ThemedText>
             {user.position && (
-              <ThemedText style={{ marginTop: 4 }}>{user.position}</ThemedText>
+              <ThemedText style={{ marginTop: 2 }}>{user.position}</ThemedText>
             )}
             {user.email && (
-              <ThemedText style={{ marginTop: 8 }}>{user.email}</ThemedText>
+              <ThemedText style={{ marginTop: 2 }}>{user.email}</ThemedText>
             )}
             {user.phone && (
-              <ThemedText style={{ marginTop: 8 }}>
+              <ThemedText style={{ marginTop: 2 }}>
                 Tālrunis: {user.phone}
               </ThemedText>
             )}
