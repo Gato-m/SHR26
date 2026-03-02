@@ -64,6 +64,10 @@ export const createAppTheme = (palette: typeof LightPalette) =>
         fontSize: 28,
         fontFamily: "Inter-Regular",
       },
+      subtitle: {
+        fontSize: 16,
+        color: "textSecondary",
+      },
       body: {
         fontSize: 16,
         fontFamily: "Inter-Regular",

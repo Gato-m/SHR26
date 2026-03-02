@@ -1,7 +1,9 @@
 import { useTheme } from "@shopify/restyle";
-import React from "react";
-import { TextInput } from "react-native";
-import Icon from "react-native-vector-icons/Ionicons";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { Linking, Pressable, ScrollView, TextInput, View } from "react-native";
+import { supabase } from "../../../lib/supabase";
+// import Icon from "react-native-vector-icons/Ionicons"; // Remove or replace if not used
 import {
   ThemedButton,
   ThemedCard,
@@ -10,14 +12,11 @@ import {
   ThemedText,
   ThemedView,
 } from "../../components";
-import { useThemeMode } from "../../providers/ThemeProvider";
-import { Theme } from "../../theme/theme";
-
-import { useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
-import { supabase } from "../../../lib/supabase";
 import { ThemedAvatar } from "../../components/ThemedAvatar";
 import { ThemedPhoneIcon } from "../../components/ThemedPhoneIcon";
+import { useThemeMode } from "../../providers/ThemeProvider";
+import type { Theme } from "../../theme/theme";
+
 // Helper to get public URL for Supabase storage
 function getAvatarUrl(path: string) {
   const { data } = supabase.storage.from("avatars").getPublicUrl(path);
@@ -25,6 +24,7 @@ function getAvatarUrl(path: string) {
 }
 
 export default function DemoScreen() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   // Latvian alphabet order
   const latvianAlphabet = [
@@ -123,7 +123,6 @@ export default function DemoScreen() {
     <ThemedView style={{ flex: 1, padding: 20 }}>
       {/* HEADER */}
       <ThemedHeader>Darbinieki</ThemedHeader>
-
       <ThemedButton
         label={
           mode === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"
@@ -131,11 +130,7 @@ export default function DemoScreen() {
         variant="primary"
         onPress={toggle}
       />
-
-      {/* TEXT */}
-
       <ThemedSpacer size="m" />
-      {/* SEARCH INPUT */}
       <View
         style={{
           flexDirection: "row",
@@ -147,12 +142,7 @@ export default function DemoScreen() {
           borderColor: theme.colors.gray400,
         }}
       >
-        <Icon
-          name="search"
-          size={20}
-          color={theme.colors.textSecondary}
-          style={{ position: "absolute", left: 8, zIndex: 1 }}
-        />
+        {/* Replace Icon with a placeholder or remove if not used */}
         <TextInput
           value={search}
           onChangeText={setSearch}
@@ -180,6 +170,7 @@ export default function DemoScreen() {
                 fontWeight: "bold",
                 fontSize: 16,
                 marginLeft: 26,
+                color: theme.colors.textSecondary,
               }}
             >
               {group.letter}
@@ -193,6 +184,12 @@ export default function DemoScreen() {
                   marginBottom: 8,
                   padding: 12,
                 }}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(modals)/profile",
+                    params: { id: item.id },
+                  })
+                }
               >
                 {/* Avatar on the left */}
                 <ThemedAvatar
@@ -200,7 +197,7 @@ export default function DemoScreen() {
                     item.avatar ? getAvatarUrl(item.avatar) : undefined
                   }
                   size={48}
-                  name={item.name}
+                  fullName={item.name}
                 />
                 <View style={{ flex: 1 }}>
                   <ThemedText
@@ -222,7 +219,15 @@ export default function DemoScreen() {
                     {item.email}
                   </ThemedText>
                 </View>
-                <ThemedPhoneIcon />
+                {item.phone && (
+                  <Pressable
+                    onPress={() => Linking.openURL(`tel:${item.phone}`)}
+                    hitSlop={10}
+                    style={{ marginLeft: 8 }}
+                  >
+                    <ThemedPhoneIcon />
+                  </Pressable>
+                )}
               </ThemedCard>
             ))}
           </React.Fragment>
@@ -231,4 +236,3 @@ export default function DemoScreen() {
     </ThemedView>
   );
 }
-// Custom avatar image component to handle fallback and errors
