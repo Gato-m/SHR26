@@ -2,21 +2,21 @@
 import { createTheme } from "@shopify/restyle";
 
 export const LightPalette = {
-  primary: "#f3f3f3",
+  primary: "#f0eeee",
   primaryDark: "#D4D4D8",
-  accent: "#f0983e",
+  accent: "#f3832d",
   gray100: "#f4f4f4",
-  gray200: "#dbdddb",
+  gray200: "#d3d3d3",
   gray400: "#9a9b9b",
   gray800: "#5a5a5a",
   white: "#F3F4F6",
   black: "#000000",
   text: "#424141",
   textSecondary: "#838383",
-  background: "#e7e7e7",
+  background: "#e2e2e2",
 };
 export const DarkPalette = {
-  primary: "#3c4150",
+  primary: "#373940",
   primaryDark: "#2f3340",
   accent: "#f0983e",
   gray100: "#f4f4f4",
@@ -26,7 +26,7 @@ export const DarkPalette = {
   white: "#F3F4F6",
   black: "#000000",
   text: "#eaeaea",
-  textSecondary: "#a8a8a8",
+  textSecondary: "#a09696",
   background: "#22252b",
 };
 
@@ -66,7 +66,7 @@ export const createAppTheme = (palette: typeof LightPalette) =>
       },
       subtitle: {
         fontSize: 16,
-        color: "textSecondary",
+        color: "theme.colors.textSecondary",
       },
       body: {
         fontSize: 16,

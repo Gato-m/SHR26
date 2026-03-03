@@ -12,7 +12,7 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.gray200,
-          paddingTop: 15,
+          paddingTop: 5,
         },
         tabBarActiveTintColor: theme.colors.accent || theme.colors.text,
         tabBarInactiveTintColor: theme.colors.text,
@@ -26,20 +26,24 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="home"
+        name="absences"
         options={{
-          title: "Home",
+          title: "Prombūtnes",
           tabBarIcon: ({ color }) => (
-            <TabBarIcon name="home-outline" color={color} />
+            <TabBarIcon
+              name="calendar-times-o"
+              color={color}
+              library="fontawesome"
+            />
           ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: "Pievienot datus",
           tabBarIcon: ({ color }) => (
-            <TabBarIcon name="person-outline" color={color} />
+            <TabBarIcon name="calendar-outline" color={color} />
           ),
         }}
       />
@@ -48,7 +52,7 @@ export default function TabsLayout() {
         options={{
           title: "Darbinieki",
           tabBarIcon: ({ color }) => (
-            <TabBarIcon name="search-outline" color={color} />
+            <TabBarIcon name="person-outline" color={color} />
           ),
         }}
       />

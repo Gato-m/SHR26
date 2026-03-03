@@ -1,6 +1,6 @@
+import { Feather } from "@expo/vector-icons";
 import { useTheme } from "@shopify/restyle";
 import React from "react";
-import Icon from "react-native-vector-icons/Ionicons";
 import { Theme } from "../theme";
 
 export type ThemedPhoneIconProps = {
@@ -16,6 +16,11 @@ export function ThemedPhoneIcon({
 }: ThemedPhoneIconProps) {
   const theme = useTheme<Theme>();
   return (
-    <Icon name="call" size={size} color={theme.colors[variant]} style={style} />
+    <Feather
+      name="phone-call"
+      size={size}
+      color={theme.colors[variant]}
+      style={style}
+    />
   );
 }

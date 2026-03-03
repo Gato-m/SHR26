@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@shopify/restyle";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -133,6 +134,7 @@ export default function DemoScreen() {
         style={{
           flexDirection: "row",
           alignItems: "center",
+          position: "relative",
           marginTop: 16,
           marginBottom: 8,
           borderRadius: 8,
@@ -140,7 +142,22 @@ export default function DemoScreen() {
           borderColor: theme.colors.gray400,
         }}
       >
-        {/* Replace Icon with a placeholder or remove if not used */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: 10,
+            zIndex: 2,
+            elevation: 2,
+          }}
+        >
+          <Ionicons
+            name="search"
+            size={18}
+            color={theme.colors.textSecondary}
+            marginRight={8}
+          />
+        </View>
         <TextInput
           value={search}
           onChangeText={setSearch}

@@ -1,10 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import { useTheme } from "@shopify/restyle";
+import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -14,10 +17,14 @@ import { supabase } from "../../../lib/supabase";
 import {
   ThemedCard,
   ThemedCardSection,
+  ThemedHeaderUser,
   ThemedText,
   ThemedView,
 } from "../../components";
 import { ThemedAvatar } from "../../components/ThemedAvatar";
+import { ThemedPhoneIcon } from "../../components/ThemedPhoneIcon";
+import { useThemeMode } from "../../providers/ThemeProvider";
+import { Theme } from "../../theme/theme";
 
 type User = {
   id: string;
@@ -78,20 +85,19 @@ const CATEGORIES: Category[] = [
 const WEEKDAY_SHORT = ["Sv", "P", "O", "T", "C", "P", "S"];
 
 export default function AbsencesScreen() {
+  const router = useRouter();
+  const theme = useTheme<Theme>();
+  const { mode } = useThemeMode();
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [weekOffset, setWeekOffset] = useState(0);
 
   const currentDate = new Date();
-  const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth();
 
   useFocusEffect(
     useCallback(() => {
-      // Reset to current date when screen comes into focus
-      setSelectedDate(new Date());
-      // Fetch fresh absences data
+      // Fetch fresh absences data without resetting selected date
       fetchAbsences();
     }, []),
   );
@@ -268,11 +274,34 @@ export default function AbsencesScreen() {
     );
   }
 
+  function getDisplayedMonthDate(days: Date[]): Date {
+    const monthCounts = days.reduce<Record<string, number>>((acc, day) => {
+      const monthKey = `${day.getFullYear()}-${day.getMonth()}`;
+      acc[monthKey] = (acc[monthKey] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    const currentMonthKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+    const otherMonthEntry = Object.entries(monthCounts).find(
+      ([monthKey, count]) => monthKey !== currentMonthKey && count >= 3,
+    );
+
+    const targetMonthKey =
+      otherMonthEntry?.[0] ??
+      Object.entries(monthCounts).sort((a, b) => b[1] - a[1])[0][0];
+
+    const [year, month] = targetMonthKey.split("-").map(Number);
+    return new Date(year, month, 1);
+  }
+
   const weekDays = getCurrentWeekDays(weekOffset);
-  const monthInLatvian = new Date(currentYear, currentMonth)
+  const displayedMonthDate = getDisplayedMonthDate(weekDays);
+  const monthInLatvian = displayedMonthDate
     .toLocaleDateString("lv-LV", { month: "long" })
     .toLocaleLowerCase("lv-LV");
-  const monthName = `${currentYear}. gada ${monthInLatvian}`;
+  const monthName = `${displayedMonthDate.getFullYear()}. gada ${monthInLatvian}`;
+  const userCardDividerColor =
+    mode === "light" ? theme.colors.gray200 : theme.colors.gray800;
 
   if (loading) {
     return (
@@ -284,11 +313,16 @@ export default function AbsencesScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView>
       {/* Header */}
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>Prombūtne</ThemedText>
-        <ThemedText style={styles.subtitle}>{monthName}</ThemedText>
+      {/* <ThemedText style={styles.title}>Prombūtne</ThemedText> */}
+      <View style={styles.headerRow}>
+        <ThemedText
+          style={[styles.subtitle, { color: theme.colors.textSecondary }]}
+        >
+          {monthName}
+        </ThemedText>
+        <ThemedHeaderUser />
       </View>
 
       {/* Week Navigation */}
@@ -297,7 +331,7 @@ export default function AbsencesScreen() {
           style={styles.arrowButton}
           onPress={() => setWeekOffset(weekOffset - 1)}
         >
-          <Ionicons name="chevron-back" size={24} color="#007bff" />
+          <Ionicons name="chevron-back" size={24} color={theme.colors.accent} />
         </TouchableOpacity>
 
         {/* Horizontal Date Scroll - Sticky */}
@@ -311,35 +345,51 @@ export default function AbsencesScreen() {
               return (
                 <View key={index} style={styles.dateCardWrapper}>
                   <TouchableOpacity
-                    style={[
-                      styles.dateCard,
-                      isSelected && styles.dateCardSelected,
-                    ]}
+                    style={styles.dateCard}
                     onPress={() => setSelectedDate(day)}
                   >
                     <ThemedText
-                      style={[
-                        styles.dayOfWeek,
-                        isSelected && styles.dayOfWeekSelected,
-                      ]}
+                      style={[styles.dayOfWeek, { color: theme.colors.text }]}
                     >
                       {dayOfWeek}
                     </ThemedText>
-                    <ThemedText
+                    <View
                       style={[
-                        styles.dateNumber,
-                        isSelected && styles.dateNumberSelected,
+                        styles.dateCircle,
+                        {
+                          borderColor:
+                            mode === "light"
+                              ? theme.colors.gray200
+                              : theme.colors.textSecondary,
+                        },
+                        isSelected && {
+                          backgroundColor: theme.colors.accent,
+                          borderColor: theme.colors.accent,
+                        },
                       ]}
                     >
-                      {day.getDate()}
-                    </ThemedText>
+                      <ThemedText
+                        style={[
+                          styles.dateNumber,
+                          {
+                            color: isSelected
+                              ? theme.colors.white
+                              : theme.colors.text,
+                          },
+                        ]}
+                      >
+                        {day.getDate()}
+                      </ThemedText>
+                    </View>
                   </TouchableOpacity>
-                  {(hasAbsences || isSelected) && (
+                  {hasAbsences && (
                     <View style={styles.indicatorContainer}>
-                      {hasAbsences && !isSelected && (
-                        <View style={styles.absenceDot} />
-                      )}
-                      {isSelected && <View style={styles.selectedDot} />}
+                      <View
+                        style={[
+                          styles.absenceDot,
+                          { backgroundColor: theme.colors.accent },
+                        ]}
+                      />
                     </View>
                   )}
                 </View>
@@ -352,7 +402,11 @@ export default function AbsencesScreen() {
           style={styles.arrowButton}
           onPress={() => setWeekOffset(weekOffset + 1)}
         >
-          <Ionicons name="chevron-forward" size={24} color="#007bff" />
+          <Ionicons
+            name="chevron-forward"
+            size={24}
+            color={theme.colors.accent}
+          />
         </TouchableOpacity>
       </View>
 
@@ -372,9 +426,7 @@ export default function AbsencesScreen() {
                   size={19}
                   color={category.color}
                 />
-                <ThemedText
-                  style={[styles.categoryTitle, { color: category.color }]}
-                >
+                <ThemedText style={styles.categoryTitle}>
                   {category.label}
                 </ThemedText>
                 <View
@@ -395,12 +447,25 @@ export default function AbsencesScreen() {
 
                   const avatarUrl = getAvatarUrl(user.avatar);
                   const isLastInSection = index === categoryAbsences.length - 1;
+                  const showCardDivider =
+                    categoryAbsences.length > 1 && !isLastInSection;
 
                   return (
                     <ThemedCard
                       key={absence.id}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/(modals)/profile",
+                          params: { id: user.id },
+                        })
+                      }
                       style={[
                         styles.userCard,
+                        showCardDivider && {
+                          borderBottomWidth: 1,
+                          borderBottomColor: userCardDividerColor,
+                          paddingBottom: 8,
+                        },
                         !isLastInSection && styles.userCardGap,
                       ]}
                     >
@@ -413,7 +478,12 @@ export default function AbsencesScreen() {
                           <ThemedText style={styles.userName}>
                             {user.name}
                           </ThemedText>
-                          <ThemedText style={styles.userSubtitle}>
+                          <ThemedText
+                            style={[
+                              styles.userSubtitle,
+                              { color: theme.colors.textSecondary },
+                            ]}
+                          >
                             {user.position}
                           </ThemedText>
                           {!!absence.comment_text && (
@@ -422,13 +492,17 @@ export default function AbsencesScreen() {
                             </ThemedText>
                           )}
                         </View>
-                        {absence.is_reachable && (
-                          <TouchableOpacity
+                        {absence.is_reachable && !!user.phone && (
+                          <Pressable
+                            onPress={(event) => {
+                              event.stopPropagation();
+                              handlePhoneCall(user.phone);
+                            }}
+                            hitSlop={10}
                             style={styles.phoneButton}
-                            onPress={() => handlePhoneCall(user.phone)}
                           >
-                            <Ionicons name="call" size={20} color="#007bff" />
-                          </TouchableOpacity>
+                            <ThemedPhoneIcon />
+                          </Pressable>
                         )}
                       </View>
                     </ThemedCard>
@@ -446,7 +520,7 @@ export default function AbsencesScreen() {
         ).length > 0 && (
           <View style={styles.categorySection}>
             <View style={styles.categoryHeader}>
-              <ThemedText style={[styles.categoryTitle, { color: "#999" }]}>
+              <ThemedText style={styles.categoryTitle}>
                 ⚠️ Uncategorized (
                 {
                   getAbsencesForSelectedDate().filter(
@@ -474,13 +548,27 @@ export default function AbsencesScreen() {
                         !abs.category ||
                         !CATEGORIES.find((c) => c.id === abs.category),
                     );
+                  const isLastInSection =
+                    index === uncategorizedAbsences.length - 1;
+                  const showCardDivider =
+                    uncategorizedAbsences.length > 1 && !isLastInSection;
                   return (
                     <ThemedCard
                       key={absence.id}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/(modals)/profile",
+                          params: { id: user.id },
+                        })
+                      }
                       style={[
                         styles.userCard,
-                        index !== uncategorizedAbsences.length - 1 &&
-                          styles.userCardGap,
+                        showCardDivider && {
+                          borderBottomWidth: 0.3,
+                          borderBottomColor: userCardDividerColor,
+                          paddingBottom: 8,
+                        },
+                        !isLastInSection && styles.userCardGap,
                       ]}
                     >
                       <View style={styles.userMainRow}>
@@ -492,13 +580,30 @@ export default function AbsencesScreen() {
                           <ThemedText style={styles.userName}>
                             {user.name}
                           </ThemedText>
-                          <ThemedText style={styles.userSubtitle}>
+                          <ThemedText
+                            style={[
+                              styles.userSubtitle,
+                              { color: theme.colors.textSecondary },
+                            ]}
+                          >
                             {user.position}
                           </ThemedText>
                           <ThemedText style={styles.userDescription}>
                             {`Category: ${absence.category || "EMPTY"} | ${absence.comment_text || "No comment"}`}
                           </ThemedText>
                         </View>
+                        {absence.is_reachable && !!user.phone && (
+                          <Pressable
+                            onPress={(event) => {
+                              event.stopPropagation();
+                              handlePhoneCall(user.phone);
+                            }}
+                            hitSlop={10}
+                            style={styles.phoneButton}
+                          >
+                            <ThemedPhoneIcon />
+                          </Pressable>
+                        )}
                       </View>
                     </ThemedCard>
                   );
@@ -538,9 +643,9 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
-    backgroundColor: "#fff",
+    // backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    // borderBottomColor: "#e0e0e0",
   },
   title: {
     fontSize: 28,
@@ -550,23 +655,28 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: "#666",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    paddingTop: 18,
   },
   weekNavigation: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-
-    paddingVertical: 10,
+    // paddingVertical: 10,
     paddingHorizontal: 8,
+    marginBottom: 8,
   },
   arrowButton: {
     padding: 12,
     justifyContent: "center",
     alignItems: "center",
+    marginTop: 17,
   },
   dateScroll: {
-    backgroundColor: "#fff",
     paddingVertical: 12,
     flex: 1,
   },
@@ -577,23 +687,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 2,
-    gap: 6,
+    gap: 12,
+    marginBottom: 10,
   },
   dateCard: {
-    paddingVertical: 4,
+    paddingVertical: 2,
     paddingHorizontal: 2,
-    borderRadius: 50,
-    borderWidth: 2,
-    borderColor: "#e0e0e0",
     alignItems: "center",
-    backgroundColor: "#fff",
     justifyContent: "center",
     minWidth: 40,
-    minHeight: 50,
   },
-  dateCardSelected: {
-    backgroundColor: "#007bff",
-    borderColor: "#007bff",
+  dateCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
   },
   dateCardWrapper: {
     flex: 1,
@@ -604,21 +714,12 @@ const styles = StyleSheet.create({
   },
   dayOfWeek: {
     fontSize: 11,
-    color: "#666",
     fontWeight: "500",
-    marginBottom: 1,
-  },
-  dayOfWeekSelected: {
-    color: "#fff",
+    marginBottom: 6,
   },
   dateNumber: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#333",
-    marginBottom: 1,
-  },
-  dateNumberSelected: {
-    color: "#fff",
   },
   indicatorContainer: {
     position: "absolute",
@@ -634,18 +735,16 @@ const styles = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 2,
-    backgroundColor: "#007bff",
   },
   selectedDot: {
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: "#007bff",
   },
   categorySection: {
     // marginTop: 6,
-    backgroundColor: "#fff",
-    padding: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     // borderTopWidth: 1,
     // borderBottomWidth: 1,
     // borderColor: '#e0e0e0',
@@ -663,25 +762,22 @@ const styles = StyleSheet.create({
   },
   categoryBadge: {
     backgroundColor: "#f0f0f0",
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderRadius: 13,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 11,
     marginLeft: 4,
   },
   categoryBadgeText: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#fff",
     fontWeight: "600",
   },
   phoneButton: {
-    padding: 8,
     marginLeft: 8,
-    backgroundColor: "#e3f2fd",
-    borderRadius: 20,
   },
   userCard: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
   },
   userCardGap: {
     marginBottom: 8,
@@ -699,12 +795,11 @@ const styles = StyleSheet.create({
   },
   userSubtitle: {
     fontSize: 13,
-    color: "#666",
   },
   userDescription: {
     fontSize: 13,
-    color: "#777",
     marginTop: 2,
+    color: "theme.colors.gray400",
   },
   emptyState: {
     alignItems: "center",
