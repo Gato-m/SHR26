@@ -1,5 +1,6 @@
 export * from "./ThemedButton";
 export * from "./ThemedCard";
+export * from "./ThemedCardSection";
 export * from "./ThemedHeader";
 export * from "./ThemedIcon";
 export * from "./ThemedInput";
