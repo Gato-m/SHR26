@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "@shopify/restyle";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,12 +15,13 @@ import {
 import { supabase } from "../../../lib/supabase";
 import {
   ThemedCardSection,
+  ThemedHeaderUser,
   ThemedInput,
   ThemedSpacer,
   ThemedText,
   ThemedView,
 } from "../../components";
-import { categoriesColor } from "../../theme";
+import { categoriesColor, Theme } from "../../theme";
 
 type User = {
   id: string;
@@ -78,6 +80,7 @@ const CATEGORIES: Category[] = [
 ];
 
 export default function AddDataScreen() {
+  const theme = useTheme<Theme>();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -896,99 +899,136 @@ export default function AddDataScreen() {
   }
 
   return (
-    <ScrollView
-      ref={pageScrollRef}
-      style={styles.container}
-      scrollEnabled={!isRangeSelecting}
-    >
-      <ThemedView>
-        {/* User Selection */}
-
-        <ThemedCardSection>
-          <ThemedText variant="subtitle">Personāls</ThemedText>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.userScroll}
-          >
-            {users.map((user) => (
-              <TouchableOpacity
-                key={user.id}
-                style={[
-                  styles.userChip,
-                  selectedUserId === user.id && styles.userChipSelected,
-                ]}
-                onPress={() => setSelectedUserId(user.id)}
-              >
-                <Text
-                  style={[
-                    styles.userChipText,
-                    selectedUserId === user.id && styles.userChipTextSelected,
-                  ]}
-                >
-                  {user.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </ThemedCardSection>
-      </ThemedView>
-
-      {isInfoPanelMounted && (
-        <Animated.View
-          style={{
-            opacity: infoPanelOpacity,
-            maxHeight: infoPanelHeight.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 320],
-            }),
-            overflow: "visible",
-          }}
-        >
-          <View style={styles.formSectionContentInfo}>
-            <View style={styles.infoPanelContainer}>
-              <View style={styles.infoPanelContent}>
-                <View style={styles.infoPanelHeader}>
-                  <View style={styles.infoBadge}>
-                    <Text style={styles.infoBadgeText}>i</Text>
-                  </View>
-                </View>
-                <View>
-                  <Text style={styles.infoPanelDescription}>
-                    Izvēlies kategoriju, tad kalendāra datumus, kuros būsi
-                    prombūtnē, tad nākamo kategoriju un datumus.
-                  </Text>
-                  <Text style={styles.infoPanelDescription}>
-                    Ja vēlies atzīmēt garāku periodu, spied uz pirmā datuma un,
-                    neatlaižot pirkstu, izvēlies pēdējo datumu.
-                  </Text>
-                  <Text style={styles.infoPanelDescription}>
-                    Ja vēlies, vari pievienot īsu komentāru un norādīt, vai būsi
-                    sazvanāms. Aktivizē izvēlēto datumus divreiz klikšķinot uz
-                    tā. Atzīmē vai būsi sazvanāms, spied pogu "Īss komentārs" un
-                    ieraksti savu komentāru. Kad esi izdarījis savas izvēles,
-                    spied pogu "Apstiprināt visas izvēles".
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.infoToggleButton}
-                  onPress={() => setShowInfoPanel(false)}
-                  accessibilityLabel="Hide info"
-                >
-                  <Ionicons name="close" size={16} color="#333" />
-                </TouchableOpacity>
-              </View>
+    <ThemedView>
+      <ScrollView ref={pageScrollRef} style={styles.container} scrollEnabled>
+        <ThemedView style={styles.contentRoot}>
+          {/* User Selection */}
+          <View style={styles.headerUserContainer}>
+            <View style={styles.headerUserRow}>
+              <ThemedHeaderUser />
             </View>
+            <ThemedSpacer size="m" />
           </View>
-        </Animated.View>
-      )}
 
-      {/* Form Section: Category, Options, Dates, Calendar, and Buttons */}
-      <ThemedCardSection>
-        <View style={styles.formSectionContent}>
-          <View style={styles.headerRow}>
-            <ThemedText>Izvēlies prombūtnes kategoriju *</ThemedText>
-            <ThemedSpacer height={8} />
+          <ThemedCardSection>
+            <ThemedText variant="subtitle" style={{ color: theme.colors.text }}>
+              Personāls
+            </ThemedText>
+            <ThemedSpacer size="m" />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.userScroll}
+            >
+              {users.map((user) => (
+                <TouchableOpacity
+                  key={user.id}
+                  style={[
+                    styles.categoryChip,
+                    styles.userChipSpacing,
+                    {
+                      backgroundColor: theme.colors.primary,
+                      borderColor: theme.colors.gray400,
+                    },
+                    selectedUserId === user.id && {
+                      backgroundColor: theme.colors.accent,
+                      borderColor: theme.colors.accent,
+                    },
+                  ]}
+                  onPress={() => setSelectedUserId(user.id)}
+                >
+                  <Text
+                    style={[
+                      styles.categoryChipText,
+                      { color: theme.colors.text },
+                      selectedUserId === user.id &&
+                        styles.categoryChipTextSelected,
+                    ]}
+                  >
+                    {user.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </ThemedCardSection>
+        </ThemedView>
+
+        {isInfoPanelMounted && (
+          <Animated.View
+            style={{
+              opacity: infoPanelOpacity,
+              maxHeight: infoPanelHeight.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 320],
+              }),
+              overflow: "visible",
+            }}
+          >
+            <ThemedView style={styles.formSectionContentInfo}>
+              <ThemedView style={styles.infoPanelContainer}>
+                <ThemedView style={styles.infoPanelContent}>
+                  <ThemedView style={styles.infoPanelHeader}>
+                    <ThemedView style={styles.infoBadge}>
+                      <Text style={styles.infoBadgeText}>i</Text>
+                    </ThemedView>
+                  </ThemedView>
+                  <ThemedView style={styles.infoTextBlock}>
+                    <Text
+                      style={[
+                        styles.infoPanelDescription,
+                        { color: theme.colors.text },
+                      ]}
+                    >
+                      Izvēlies kategoriju, tad kalendāra datumus, kuros būsi
+                      prombūtnē, tad nākamo kategoriju un datumus.
+                    </Text>
+                    <Text
+                      style={[
+                        styles.infoPanelDescription,
+                        { color: theme.colors.text },
+                      ]}
+                    >
+                      Ja vēlies atzīmēt garāku periodu, spied uz pirmā datuma
+                      un, neatlaižot pirkstu, izvēlies pēdējo datumu.
+                    </Text>
+                    <Text
+                      style={[
+                        styles.infoPanelDescription,
+                        { color: theme.colors.text },
+                      ]}
+                    >
+                      Ja vēlies, vari pievienot īsu komentāru un norādīt, vai
+                      būsi sazvanāms. Aktivizē izvēlēto datumus divreiz
+                      klikšķinot uz tā. Atzīmē vai būsi sazvanāms, spied pogu
+                      "Īss komentārs" un ieraksti savu komentāru. Kad esi
+                      izdarījis savas izvēles, spied pogu "Apstiprināt visas
+                      izvēles".
+                    </Text>
+                  </ThemedView>
+                  <TouchableOpacity
+                    style={styles.infoToggleButton}
+                    onPress={() => setShowInfoPanel(false)}
+                    accessibilityLabel="Hide info"
+                  >
+                    <Ionicons
+                      name="close"
+                      size={16}
+                      color={theme.colors.text}
+                    />
+                  </TouchableOpacity>
+                </ThemedView>
+              </ThemedView>
+            </ThemedView>
+          </Animated.View>
+        )}
+
+        {/* Form Section: Category, Options, Dates, Calendar, and Buttons */}
+        <ThemedCardSection>
+          <ThemedView style={styles.categoryTitleContainer}>
+            <ThemedText variant="subtitle" style={{ color: theme.colors.text }}>
+              Izvēlies prombūtnes kategoriju *
+            </ThemedText>
+            <ThemedSpacer size="m" />
             {!showInfoPanel && (
               <TouchableOpacity
                 style={styles.infoButton}
@@ -998,8 +1038,8 @@ export default function AddDataScreen() {
                 <Text style={styles.infoToggleText}>i</Text>
               </TouchableOpacity>
             )}
-          </View>
-          <View style={styles.categoryGrid}>
+          </ThemedView>
+          <ThemedView style={styles.categoryGrid}>
             {CATEGORIES.map((category) => {
               const isCategoryActive = selectedCategory === category.id;
               const hasCategorySelection = selections.some(
@@ -1013,6 +1053,7 @@ export default function AddDataScreen() {
                   key={category.id}
                   style={[
                     styles.categoryChip,
+                    { backgroundColor: theme.colors.primary },
                     { borderColor: category.color },
                     isCategorySelected && {
                       backgroundColor: category.color,
@@ -1029,6 +1070,7 @@ export default function AddDataScreen() {
                   <Text
                     style={[
                       styles.categoryChipText,
+                      { color: theme.colors.text },
                       isCategorySelected && styles.categoryChipTextSelected,
                     ]}
                   >
@@ -1037,15 +1079,22 @@ export default function AddDataScreen() {
                 </TouchableOpacity>
               );
             })}
-          </View>
+          </ThemedView>
 
-          <Text style={[styles.label, styles.labelSecondary]}>
+          <ThemedText
+            style={[
+              styles.label,
+              styles.labelSecondary,
+              { color: theme.colors.text },
+            ]}
+          >
             Vari pievienot:
-          </Text>
-          <View style={styles.optionsRow}>
+          </ThemedText>
+          <ThemedView style={styles.optionsRow}>
             <TouchableOpacity
               style={[
                 styles.optionChip,
+                { backgroundColor: theme.colors.primary },
                 { borderColor: "#10b981" },
                 isActiveDateReachable && styles.optionChipSelected,
               ]}
@@ -1063,6 +1112,7 @@ export default function AddDataScreen() {
               <Text
                 style={[
                   styles.optionChipText,
+                  { color: theme.colors.text },
                   isActiveDateReachable && styles.optionChipTextSelected,
                 ]}
               >
@@ -1073,6 +1123,7 @@ export default function AddDataScreen() {
             <TouchableOpacity
               style={[
                 styles.optionChip,
+                { backgroundColor: theme.colors.primary },
                 { borderColor: "#3b82f6" },
                 (showCommentInput ||
                   (activeDateKey && commentsByDateKey[activeDateKey])) &&
@@ -1098,6 +1149,7 @@ export default function AddDataScreen() {
               <Text
                 style={[
                   styles.optionChipText,
+                  { color: theme.colors.text },
                   (showCommentInput ||
                     (activeDateKey && commentsByDateKey[activeDateKey])) &&
                     styles.optionChipTextSelected,
@@ -1106,7 +1158,7 @@ export default function AddDataScreen() {
                 Īss komentārs
               </Text>
             </TouchableOpacity>
-          </View>
+          </ThemedView>
 
           {isCommentInputMounted && (
             <Animated.View
@@ -1119,7 +1171,7 @@ export default function AddDataScreen() {
                 overflow: "visible",
               }}
             >
-              <View style={styles.commentInputContainer}>
+              <ThemedView style={styles.commentInputContainer}>
                 <ThemedInput
                   style={styles.commentInputField}
                   value={currentCommentText}
@@ -1129,7 +1181,7 @@ export default function AddDataScreen() {
                   numberOfLines={4}
                   textAlignVertical="top"
                 />
-                <View style={styles.commentInputButtonRow}>
+                <ThemedView style={styles.commentInputButtonRow}>
                   <TouchableOpacity
                     style={[styles.commentButton, styles.commentButtonCancel]}
                     onPress={closeCommentInput}
@@ -1144,19 +1196,30 @@ export default function AddDataScreen() {
                       Pievienot
                     </Text>
                   </TouchableOpacity>
-                </View>
-              </View>
+                </ThemedView>
+              </ThemedView>
             </Animated.View>
           )}
 
-          <View style={styles.calendarContainer}>
-            <Text style={styles.monthLabel}>{monthName}</Text>
+          <ThemedView style={styles.calendarContainer}>
+            <Text
+              style={[styles.monthLabel, { color: theme.colors.textSecondary }]}
+            >
+              {monthName}
+            </Text>
 
             {/* Weekday headers */}
             <View style={styles.weekdayHeader}>
               {["P", "O", "T", "C", "P", "S", "Sv"].map((day, index) => (
                 <View key={index} style={styles.weekdayCell}>
-                  <Text style={styles.weekdayText}>{day}</Text>
+                  <Text
+                    style={[
+                      styles.weekdayText,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    {day}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -1282,6 +1345,7 @@ export default function AddDataScreen() {
                             <Text
                               style={[
                                 styles.dayText,
+                                { color: theme.colors.textSecondary },
                                 selectionMatch && styles.dayTextSelected,
                                 isWeekend &&
                                   !selectionMatch &&
@@ -1322,14 +1386,20 @@ export default function AddDataScreen() {
                                   style={[
                                     styles.commentBadge,
                                     {
-                                      borderColor: selectionColor || "#ed1616",
+                                      borderColor:
+                                        selectionColor ||
+                                        categoriesColor.slimiba,
                                     },
                                   ]}
                                 >
                                   <Text
                                     style={[
                                       styles.commentBadgeText,
-                                      { color: selectionColor || "#ed1616" },
+                                      {
+                                        color:
+                                          selectionColor ||
+                                          categoriesColor.slimiba,
+                                      },
                                     ]}
                                   >
                                     T
@@ -1345,49 +1415,81 @@ export default function AddDataScreen() {
                 );
               })}
             </View>
-          </View>
+          </ThemedView>
+        </ThemedCardSection>
 
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={styles.clearButton}
-              onPress={clearAllSelections}
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={[
+              styles.clearButton,
+              {
+                backgroundColor: theme.colors.primary,
+                borderColor: theme.colors.accent,
+              },
+            ]}
+            onPress={clearAllSelections}
+          >
+            <Ionicons
+              name="close-circle-outline"
+              size={24}
+              color={theme.colors.accent}
+            />
+            <Text
+              style={[styles.clearButtonText, { color: theme.colors.text }]}
             >
-              <Ionicons name="close-circle-outline" size={24} color="#dc3545" />
-              <Text style={styles.clearButtonText}>Dzēst visas izvēles</Text>
-            </TouchableOpacity>
+              Dzēst visas izvēles
+            </Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                loading && styles.submitButtonDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle" size={24} color="#fff" />
-                  <Text style={styles.submitButtonText}>
-                    Apstiprināt visas izvēles
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              {
+                backgroundColor: theme.colors.primary,
+                borderColor: theme.colors.accent,
+              },
+              loading && {
+                backgroundColor: theme.colors.gray400,
+                borderColor: theme.colors.gray400,
+              },
+            ]}
+            onPress={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color={theme.colors.white} />
+            ) : (
+              <>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={24}
+                  color={theme.colors.white}
+                />
+                <Text style={styles.submitButtonText}>
+                  Apstiprināt visas izvēles
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
-      </ThemedCardSection>
 
-      <View style={{ height: 40 }} />
-    </ScrollView>
+        <ThemedView style={styles.bottomSpacer} />
+      </ScrollView>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+    padding: 0,
+  },
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+  },
+  contentRoot: {
+    flex: 0,
+    padding: 0,
   },
   centered: {
     justifyContent: "center",
@@ -1406,6 +1508,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#e0e0e0",
     gap: 12,
+  },
+  headerUserContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 18,
+  },
+  headerUserRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
   },
   headerTitle: {
     fontSize: 24,
@@ -1470,7 +1581,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
   },
   formSectionContentInfo: {
-    borderColor: "red",
+    borderColor: categoriesColor.slimiba,
     marginBottom: 0,
     backgroundColor: "#f8f9fa",
     paddingTop: 0,
@@ -1482,15 +1593,23 @@ const styles = StyleSheet.create({
   infoPanelContainer: {
     position: "relative",
     minHeight: 140,
+    padding: 0,
   },
   infoPanelContent: {
     paddingTop: 16,
     paddingBottom: 8,
     paddingHorizontal: 12,
     paddingRight: 40,
+    flex: 0,
   },
   infoPanelHeader: {
     marginBottom: 6,
+    padding: 0,
+    flex: 0,
+  },
+  infoTextBlock: {
+    padding: 0,
+    flex: 0,
   },
   infoBadge: {
     width: 40,
@@ -1509,7 +1628,6 @@ const styles = StyleSheet.create({
   },
   infoPanelDescription: {
     fontSize: 13,
-    color: "#717171",
     marginBottom: 12,
   },
   infoToggleButton: {
@@ -1534,6 +1652,9 @@ const styles = StyleSheet.create({
   },
   userScroll: {
     flexDirection: "row",
+  },
+  userChipSpacing: {
+    marginRight: 8,
   },
   userChip: {
     paddingHorizontal: 12,
@@ -1560,6 +1681,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 12,
+    padding: 0,
+    flex: 0,
+    backgroundColor: "transparent",
+  },
+  categoryTitleContainer: {
+    backgroundColor: "transparent",
+    padding: 0,
+    flex: 0,
   },
   categoryChip: {
     flexDirection: "row",
@@ -1583,6 +1712,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     flexWrap: "wrap",
+    padding: 0,
+    flex: 0,
+    backgroundColor: "transparent",
   },
   optionChip: {
     flexDirection: "row",
@@ -1687,6 +1819,7 @@ const styles = StyleSheet.create({
   calendarContainer: {
     borderRadius: 8,
     padding: 12,
+    backgroundColor: "transparent",
     // borderWidth: 1,
     // borderColor: '#007bff',
     marginBottom: 12,
@@ -1702,11 +1835,14 @@ const styles = StyleSheet.create({
   weekdayHeader: {
     flexDirection: "row",
     marginBottom: 8,
+    padding: 0,
+    flex: 0,
   },
   weekdayCell: {
     flex: 1,
     alignItems: "center",
     paddingVertical: 8,
+    paddingHorizontal: 0,
   },
   weekdayText: {
     fontSize: 12,
@@ -1763,7 +1899,7 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   dayTextWeekend: {
-    color: "#dc3545",
+    color: categoriesColor.slimiba,
   },
   dayTextSelected: {
     color: "#fff",
@@ -1825,31 +1961,25 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     flexDirection: "row",
-    backgroundColor: "#fff",
     padding: 12,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
     borderWidth: 2,
-    borderColor: "#dc3545",
   },
   clearButtonText: {
-    color: "#dc3545",
     fontSize: 16,
     fontWeight: "600",
   },
   submitButton: {
     flexDirection: "row",
-    backgroundColor: "#007bff",
     padding: 12,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-  },
-  submitButtonDisabled: {
-    backgroundColor: "#ccc",
+    borderWidth: 1,
   },
   submitButtonText: {
     color: "#fff",
@@ -1884,7 +2014,7 @@ const styles = StyleSheet.create({
   commentButtonCancel: {
     backgroundColor: "#fff",
     borderWidth: 2,
-    borderColor: "#dc3545",
+    borderColor: categoriesColor.slimiba,
   },
   commentButtonSubmit: {
     backgroundColor: "#3b82f6",
@@ -1892,11 +2022,16 @@ const styles = StyleSheet.create({
   commentButtonTextCancel: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#dc3545",
+    color: categoriesColor.slimiba,
   },
   commentButtonTextSubmit: {
     fontSize: 14,
     fontWeight: "600",
     color: "#fff",
+  },
+  bottomSpacer: {
+    height: 40,
+    padding: 0,
+    flex: 0,
   },
 });

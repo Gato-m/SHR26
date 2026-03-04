@@ -3,7 +3,7 @@ import { createTheme } from "@shopify/restyle";
 
 export const LightPalette = {
   primary: "#f0eeee",
-  primaryDark: "#D4D4D8",
+  primaryDark: "#efefef",
   accent: "#d54e36",
   gray100: "#f4f4f4",
   gray200: "#d3d3d3",
@@ -16,7 +16,7 @@ export const LightPalette = {
   background: "#e2e2e2",
 };
 export const DarkPalette = {
-  primary: "#373940",
+  primary: "#414446",
   primaryDark: "#2f3340",
   accent: "#d54e36",
   gray100: "#0a0a0a",
@@ -26,7 +26,7 @@ export const DarkPalette = {
   white: "#F3F4F6",
   black: "#000000",
   text: "#eaeaea",
-  textSecondary: "#a09696",
+  textSecondary: "#b1a7a7",
   background: "#22252b",
 };
 

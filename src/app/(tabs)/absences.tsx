@@ -701,8 +701,8 @@ const styles = StyleSheet.create({
   weekContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 2,
-    gap: 12,
+    paddingHorizontal: 0,
+    gap: 0,
     marginBottom: 10,
   },
   dateCard: {
@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     alignItems: "center",
     justifyContent: "center",
-    minWidth: 40,
+    minWidth: 0,
   },
   dateCircle: {
     width: 40,
@@ -721,19 +721,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   dateCardWrapper: {
-    flex: 1,
+    width: "10%",
     marginHorizontal: 0,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
   },
   dayOfWeek: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "500",
     marginBottom: 6,
   },
   dateNumber: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "bold",
   },
   indicatorContainer: {
