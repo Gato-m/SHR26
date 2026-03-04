@@ -4,7 +4,7 @@ import { createTheme } from "@shopify/restyle";
 export const LightPalette = {
   primary: "#f0eeee",
   primaryDark: "#D4D4D8",
-  accent: "#f3832d",
+  accent: "#d54e36",
   gray100: "#f4f4f4",
   gray200: "#d3d3d3",
   gray400: "#9a9b9b",
@@ -18,8 +18,8 @@ export const LightPalette = {
 export const DarkPalette = {
   primary: "#373940",
   primaryDark: "#2f3340",
-  accent: "#f0983e",
-  gray100: "#f4f4f4",
+  accent: "#d54e36",
+  gray100: "#0a0a0a",
   gray200: "#dbdddb",
   gray400: "#9a9b9b",
   gray800: "#5a5a5a",
@@ -28,6 +28,15 @@ export const DarkPalette = {
   text: "#eaeaea",
   textSecondary: "#a09696",
   background: "#22252b",
+};
+
+export const categoriesColor = {
+  slimiba: "#FF3B30",
+  atvalinajums: "#63d138",
+  maaciibas: "rgb(36, 167, 80)",
+  iislaiciigs: "#5AC8FA",
+  cits: "#AF52DE",
+  komandejums: "#FF9500",
 };
 
 export const createAppTheme = (palette: typeof LightPalette) =>
@@ -41,7 +50,7 @@ export const createAppTheme = (palette: typeof LightPalette) =>
     spacing: {
       xs: 4,
       s: 8,
-      m: 16,
+      m: 12,
       l: 24,
       xl: 32,
     },

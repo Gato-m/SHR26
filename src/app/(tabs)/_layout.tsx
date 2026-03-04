@@ -39,7 +39,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="adddata"
         options={{
           title: "Pievienot datus",
           tabBarIcon: ({ color }) => (

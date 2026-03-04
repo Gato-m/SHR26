@@ -8,7 +8,8 @@ import { supabase } from "../../../lib/supabase";
 import {
   ThemedButton,
   ThemedCard,
-  ThemedHeader,
+  ThemedHeaderUser,
+  ThemedSpacer,
   ThemedText,
   ThemedView,
 } from "../../components";
@@ -120,9 +121,13 @@ export default function DemoScreen() {
   }, []);
 
   return (
-    <ThemedView style={{ flex: 1, padding: 20 }}>
+    <ThemedView>
       {/* HEADER */}
-      <ThemedHeader>Darbinieki</ThemedHeader>
+      <View style={styles.headerRow}>
+        <ThemedHeaderUser />
+        <ThemedSpacer size="m" />
+      </View>
+
       <ThemedButton
         label={
           mode === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"
@@ -174,6 +179,7 @@ export default function DemoScreen() {
           }}
         />
       </View>
+      <ThemedSpacer size="m" />
       <ScrollView>
         {groupedUsers.map((group) => (
           <React.Fragment key={group.letter}>
@@ -252,3 +258,15 @@ export default function DemoScreen() {
     </ThemedView>
   );
 }
+
+import { StyleSheet } from "react-native";
+
+const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    padding: 16,
+    paddingTop: 18,
+  },
+});

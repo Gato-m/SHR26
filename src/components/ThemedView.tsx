@@ -13,6 +13,7 @@ export function ThemedView({ style, ...rest }: ViewProps) {
         {
           backgroundColor: theme.colors.background,
           flex: 1,
+          padding: theme.spacing.m,
         },
         style,
       ]}

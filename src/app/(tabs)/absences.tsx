@@ -24,7 +24,7 @@ import {
 import { ThemedAvatar } from "../../components/ThemedAvatar";
 import { ThemedPhoneIcon } from "../../components/ThemedPhoneIcon";
 import { useThemeMode } from "../../providers/ThemeProvider";
-import { Theme } from "../../theme/theme";
+import { categoriesColor, Theme } from "../../theme/theme";
 
 type User = {
   id: string;
@@ -62,24 +62,39 @@ const CATEGORIES: Category[] = [
   {
     id: "darbnespeja",
     label: "Darbnespēja",
-    color: "#ef4444",
+    color: categoriesColor.slimiba,
     icon: "medical",
   },
   {
     id: "komandejums",
     label: "Komandējums",
-    color: "#3b82f6",
+    color: categoriesColor.komandejums,
     icon: "airplane",
   },
-  { id: "macibas", label: "Mācības", color: "#8b5cf6", icon: "school" },
-  { id: "islaiciga", label: "Īslaicīga", color: "#f59e0b", icon: "time" },
+  {
+    id: "macibas",
+    label: "Mācības",
+    color: categoriesColor.maaciibas,
+    icon: "school",
+  },
+  {
+    id: "islaiciga",
+    label: "Īslaicīga",
+    color: categoriesColor.iislaiciigs,
+    icon: "time",
+  },
   {
     id: "atvalinajums",
     label: "Atvaļinājums",
-    color: "#10b981",
+    color: categoriesColor.atvalinajums,
     icon: "sunny",
   },
-  { id: "cits", label: "Cits", color: "#6b7280", icon: "ellipsis-horizontal" },
+  {
+    id: "cits",
+    label: "Cits",
+    color: categoriesColor.cits,
+    icon: "ellipsis-horizontal",
+  },
 ];
 
 const WEEKDAY_SHORT = ["Sv", "P", "O", "T", "C", "P", "S"];
@@ -360,7 +375,7 @@ export default function AbsencesScreen() {
                           borderColor:
                             mode === "light"
                               ? theme.colors.gray200
-                              : theme.colors.textSecondary,
+                              : theme.colors.gray800,
                         },
                         isSelected && {
                           backgroundColor: theme.colors.accent,
