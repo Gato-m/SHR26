@@ -976,7 +976,7 @@ export default function AddDataScreen() {
         )}
 
         {/* Form Section: Category, Options, Dates, Calendar, and Buttons */}
-        <ThemedCardSection>
+        <ThemedCardSection style={{ paddingBottom: 20 }}>
           <View style={styles.categoryTitleContainer}>
             <View style={styles.categoryTitleRow}>
               <ThemedText style={[styles.label, { color: theme.colors.text }]}>
@@ -1179,7 +1179,9 @@ export default function AddDataScreen() {
               </ThemedView>
             </ThemedCardSection>
           )}
-
+        </ThemedCardSection>
+        <ThemedSpacer size="m" />
+        <ThemedCardSection>
           <ThemedView style={styles.calendarContainer}>
             {isRangeHintMounted && (
               <Animated.View
@@ -1216,6 +1218,32 @@ export default function AddDataScreen() {
                 firstDay={1}
                 hideExtraDays
                 enableSwipeMonths
+                renderArrow={(direction) => (
+                  <Ionicons
+                    name={
+                      direction === "left" ? "chevron-back" : "chevron-forward"
+                    }
+                    size={24}
+                    color={theme.colors.accent}
+                  />
+                )}
+                renderHeader={(headerDate) => {
+                  const parsedDate =
+                    headerDate instanceof Date
+                      ? headerDate
+                      : new Date(headerDate as string);
+                  const monthName = parsedDate
+                    .toLocaleDateString("lv-LV", { month: "long" })
+                    .toLocaleLowerCase("lv-LV");
+
+                  return (
+                    <Text
+                      style={[styles.monthLabel, { color: theme.colors.text }]}
+                    >
+                      {`${parsedDate.getFullYear()}. gada ${monthName}`}
+                    </Text>
+                  );
+                }}
                 onDayPress={(date: DateData) => {
                   const selectedForDay =
                     selectionByDateKey.get(date.dateString) ?? null;
@@ -1735,12 +1763,13 @@ const styles = StyleSheet.create({
   },
   calendarContainer: {
     borderRadius: 8,
-    padding: 12,
+    // paddingHorizontal: 12,
+    // paddingVertical: 2,
     backgroundColor: "transparent",
     // borderWidth: 1,
     // borderColor: '#007bff',
-    marginBottom: 12,
-    marginTop: 12,
+    // marginBottom: 12,
+    // marginTop: 12,
   },
   rangeHintText: {
     fontSize: 14,
@@ -1760,7 +1789,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#333",
     textAlign: "center",
-    marginBottom: 12,
+    marginBottom: 0,
+    lineHeight: 24,
   },
   weekdayHeader: {
     flexDirection: "row",

@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
   statsTitle: {
     fontSize: 18,
     fontWeight: "700",
-    marginBottom: 10,
+    marginBottom: 2,
     textAlign: "center",
   },
   monthRow: {
