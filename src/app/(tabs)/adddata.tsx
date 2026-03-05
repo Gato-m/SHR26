@@ -149,12 +149,9 @@ export default function AddDataScreen() {
     [dateKey: string]: string;
   }>({});
   const [showCommentInput, setShowCommentInput] = useState(false);
-  const [isCommentInputMounted, setIsCommentInputMounted] = useState(false);
   const [isRangeHintMounted, setIsRangeHintMounted] = useState(false);
   const [currentCommentText, setCurrentCommentText] = useState("");
 
-  const commentInputOpacity = useRef(new Animated.Value(0)).current;
-  const commentInputHeight = useRef(new Animated.Value(0)).current;
   const rangeHintProgress = useRef(new Animated.Value(0)).current;
   const infoPanelProgress = useRef(
     new Animated.Value(!isInfoPanelDismissedInSession ? 1 : 0),
@@ -167,48 +164,6 @@ export default function AddDataScreen() {
   const pendingSelectedDateTapRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-
-  useEffect(() => {
-    if (showCommentInput) {
-      // Reset to start values before mounting
-      commentInputOpacity.setValue(0);
-      commentInputHeight.setValue(0);
-      setIsCommentInputMounted(true);
-
-      // Small delay to ensure component is mounted before animating
-      const timer = setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(commentInputOpacity, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: false,
-          }),
-          Animated.timing(commentInputHeight, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: false,
-          }),
-        ]).start();
-      }, 10);
-
-      return () => clearTimeout(timer);
-    } else {
-      Animated.parallel([
-        Animated.timing(commentInputOpacity, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: false,
-        }),
-        Animated.timing(commentInputHeight, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: false,
-        }),
-      ]).start(() => {
-        setIsCommentInputMounted(false);
-      });
-    }
-  }, [showCommentInput, commentInputOpacity, commentInputHeight]);
 
   const shouldShowRangeHint = isRangeSelecting && Boolean(rangeStartDate);
 
@@ -542,6 +497,7 @@ export default function AddDataScreen() {
     } else {
       // Add reachable status if not marked
       setReachableDateKeys((prev) => [...prev, activeDateKey]);
+      setActiveDateKey("");
     }
   }
 
@@ -662,6 +618,21 @@ export default function AddDataScreen() {
       pendingSelectedDateTapRef.current = null;
     }
 
+    const dateKey = formatDateForDB(day);
+    const now = Date.now();
+    const lastTap = lastSelectedDateTapRef.current;
+    const isSameSelectedDateDoubleTap =
+      Boolean(selectionMatch) &&
+      lastTap?.dateKey === dateKey &&
+      now - lastTap.timestamp <= 280;
+
+    if (isSameSelectedDateDoubleTap && selectionMatch) {
+      setSelectedCategory(selectionMatch.categoryId);
+      setActiveDateKey(dateKey);
+      lastSelectedDateTapRef.current = null;
+      return;
+    }
+
     if (!selectionMatch) {
       setActiveDateKey("");
       lastSelectedDateTapRef.current = null;
@@ -678,8 +649,16 @@ export default function AddDataScreen() {
 
     setSelectedCategory(selectionMatch.categoryId);
     setActiveDateKey("");
-    lastSelectedDateTapRef.current = null;
-    handleDateSelect(day);
+    lastSelectedDateTapRef.current = {
+      dateKey,
+      timestamp: now,
+    };
+
+    pendingSelectedDateTapRef.current = setTimeout(() => {
+      handleDateSelect(day);
+      lastSelectedDateTapRef.current = null;
+      pendingSelectedDateTapRef.current = null;
+    }, 280);
   }
 
   async function handleSubmit() {
@@ -1146,20 +1125,24 @@ export default function AddDataScreen() {
             </TouchableOpacity>
           </ThemedView>
 
-          {isCommentInputMounted && (
-            <Animated.View
+          {showCommentInput && (
+            <ThemedCardSection
               style={{
-                opacity: commentInputOpacity,
-                maxHeight: commentInputHeight.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, 280],
-                }),
-                overflow: "visible",
+                borderColor: categoriesColor.slimiba,
+                borderWidth: 1,
+                padding: 10,
+                marginTop: 12,
               }}
             >
               <ThemedView style={styles.commentInputContainer}>
                 <ThemedInput
-                  style={styles.commentInputField}
+                  style={[
+                    styles.commentInputField,
+                    {
+                      backgroundColor: "transparent",
+                      borderColor: theme.colors.gray400,
+                    },
+                  ]}
                   value={currentCommentText}
                   onChangeText={setCurrentCommentText}
                   placeholder="Īss komentārs"
@@ -1172,19 +1155,29 @@ export default function AddDataScreen() {
                     style={[styles.commentButton, styles.commentButtonCancel]}
                     onPress={closeCommentInput}
                   >
+                    <Ionicons
+                      name="close-circle-outline"
+                      size={20}
+                      color={theme.colors.white}
+                    />
                     <Text style={styles.commentButtonTextCancel}>Atcelt</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.commentButton, styles.commentButtonSubmit]}
                     onPress={submitComment}
                   >
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color={theme.colors.white}
+                    />
                     <Text style={styles.commentButtonTextSubmit}>
                       Pievienot
                     </Text>
                   </TouchableOpacity>
                 </ThemedView>
               </ThemedView>
-            </Animated.View>
+            </ThemedCardSection>
           )}
 
           <ThemedView style={styles.calendarContainer}>
@@ -1249,6 +1242,14 @@ export default function AddDataScreen() {
                   const selectedForDay =
                     selectionByDateKey.get(dateKey) ?? null;
                   const isSelected = Boolean(marking?.selected);
+                  const isActive = activeDateKey === dateKey && isSelected;
+                  const isReachable =
+                    reachableDateKeys.includes(dateKey) && isSelected;
+                  const hasComment =
+                    Boolean(commentsByDateKey[dateKey]?.trim()) && isSelected;
+                  const commentBadgeBorderColor = selectedForDay
+                    ? getCategoryColor(selectedForDay.categoryId)
+                    : categoriesColor.slimiba;
                   const isWeekend = isWeekendDateKey(dateKey);
                   const isToday = dateKey === currentDateKey;
 
@@ -1264,6 +1265,7 @@ export default function AddDataScreen() {
                     <TouchableOpacity
                       style={[
                         styles.calendarDayPressable,
+                        isSelected && styles.calendarDayPressableSelected,
                         isSelected && {
                           backgroundColor:
                             (marking as { selectedColor?: string })
@@ -1283,15 +1285,56 @@ export default function AddDataScreen() {
                         );
                       }}
                     >
-                      <Text
-                        style={[
-                          styles.dayText,
-                          isSelected && styles.dayTextSelected,
-                          { color: dayTextColor },
-                        ]}
-                      >
-                        {date.day}
-                      </Text>
+                      <View style={styles.dayTextContainer}>
+                        <Text
+                          style={[
+                            styles.dayText,
+                            isSelected && styles.dayTextSelected,
+                            { color: dayTextColor },
+                          ]}
+                        >
+                          {date.day}
+                        </Text>
+
+                        {isActive && <View style={styles.activeDateDot} />}
+
+                        {isReachable && (
+                          <View
+                            style={[
+                              styles.reachableBadge,
+                              {
+                                borderColor: categoriesColor.slimiba,
+                              },
+                            ]}
+                          >
+                            <Ionicons
+                              name="call"
+                              size={9}
+                              color={categoriesColor.slimiba}
+                            />
+                          </View>
+                        )}
+
+                        {hasComment && (
+                          <View
+                            style={[
+                              styles.commentBadge,
+                              {
+                                borderColor: commentBadgeBorderColor,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.commentBadgeText,
+                                { color: categoriesColor.slimiba },
+                              ]}
+                            >
+                              T
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </TouchableOpacity>
                   );
                 }}
@@ -1774,10 +1817,10 @@ const styles = StyleSheet.create({
     borderColor: "#4b4b4c",
   },
   dayTextContainer: {
-    flex: 1,
+    width: "100%",
+    height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    width: "100%",
     position: "relative",
   },
   dayText: {
@@ -1787,11 +1830,16 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   calendarDayPressable: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+  },
+  calendarDayPressableSelected: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
   },
   dayTextWeekend: {
     color: categoriesColor.slimiba,
@@ -1799,6 +1847,15 @@ const styles = StyleSheet.create({
   dayTextSelected: {
     color: "#fff",
     fontWeight: "700",
+  },
+  activeDateDot: {
+    position: "absolute",
+    bottom: 3,
+    alignSelf: "center",
+    width: 5,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: "#ffffff",
   },
   dayNumberWrapper: {
     flexDirection: "column",
@@ -1808,16 +1865,17 @@ const styles = StyleSheet.create({
   },
   reachableBadgeAnchor: {
     position: "absolute",
-    top: 0,
+    top: 2,
     right: 0,
   },
   reachableBadge: {
-    top: 0,
-    right: -2,
-    width: 16,
-    height: 16,
+    position: "absolute",
+    top: -2,
+    right: -4,
+    width: 14,
+    height: 14,
     borderRadius: 999,
-    borderWidth: 2,
+    borderWidth: 1,
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
@@ -1828,18 +1886,20 @@ const styles = StyleSheet.create({
     left: 0,
   },
   commentBadge: {
+    position: "absolute",
     bottom: -2,
     left: -2,
-    width: 16,
-    height: 16,
+    width: 14,
+    height: 14,
     borderRadius: 999,
-    borderWidth: 2,
+    borderWidth: 1,
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
   },
   commentBadgeText: {
-    fontSize: 11,
+    fontSize: 9,
+    lineHeight: 10,
     fontWeight: "700",
   },
   input: {
@@ -1882,45 +1942,52 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   commentInputContainer: {
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: "#bbbbbb",
+    backgroundColor: "transparent",
+    padding: 4,
+    margin: 4,
   },
   commentInputField: {
-    padding: 6,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
     fontSize: 16,
     marginBottom: 12,
-    height: 100,
+    minHeight: 112,
   },
   commentInputButtonRow: {
     flexDirection: "row",
     gap: 12,
+    padding: 0,
+    margin: 0,
+    backgroundColor: "transparent",
   },
   commentButton: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    flexDirection: "row",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+    gap: 8,
   },
   commentButtonCancel: {
-    backgroundColor: "#fff",
+    backgroundColor: categoriesColor.slimiba,
     borderWidth: 2,
     borderColor: categoriesColor.slimiba,
   },
   commentButtonSubmit: {
-    backgroundColor: "#3b82f6",
+    backgroundColor: categoriesColor.maaciibas,
+    borderWidth: 1,
+    borderColor: categoriesColor.maaciibas,
   },
   commentButtonTextCancel: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
-    color: categoriesColor.slimiba,
+    color: "#fff",
   },
   commentButtonTextSubmit: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
     color: "#fff",
   },
