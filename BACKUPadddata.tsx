@@ -1,18 +1,17 @@
-import { FontAwesome6, Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@shopify/restyle";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
+  PanResponder,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { Calendar, DateData, LocaleConfig } from "react-native-calendars";
 import { supabase } from "../../../lib/supabase";
 import {
   ThemedCardSection,
@@ -80,52 +79,6 @@ const CATEGORIES: Category[] = [
   },
 ];
 
-let hasOpenedAddDataTab = false;
-let isInfoPanelDismissedInSession = false;
-
-LocaleConfig.locales.lv = {
-  monthNames: [
-    "janvāris",
-    "februāris",
-    "marts",
-    "aprīlis",
-    "maijs",
-    "jūnijs",
-    "jūlijs",
-    "augusts",
-    "septembris",
-    "oktobris",
-    "novembris",
-    "decembris",
-  ],
-  monthNamesShort: [
-    "jan",
-    "feb",
-    "mar",
-    "apr",
-    "mai",
-    "jūn",
-    "jūl",
-    "aug",
-    "sep",
-    "okt",
-    "nov",
-    "dec",
-  ],
-  dayNames: [
-    "svētdiena",
-    "pirmdiena",
-    "otrdiena",
-    "trešdiena",
-    "ceturtdiena",
-    "piektdiena",
-    "sestdiena",
-  ],
-  dayNamesShort: ["Sv", "P", "O", "T", "C", "Pk", "S"],
-  today: "Šodien",
-};
-LocaleConfig.defaultLocale = "lv";
-
 export default function AddDataScreen() {
   const theme = useTheme<Theme>();
   const [users, setUsers] = useState<User[]>([]);
@@ -136,11 +89,11 @@ export default function AddDataScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [reachableDateKeys, setReachableDateKeys] = useState<string[]>([]);
   const [selections, setSelections] = useState<DateSelection[]>([]);
-  const [showInfoPanel, setShowInfoPanel] = useState(
-    !isInfoPanelDismissedInSession,
-  );
+  const [showInfoPanel, setShowInfoPanel] = useState(true);
+  const [isInfoPanelMounted, setIsInfoPanelMounted] = useState(true);
   const [isRangeSelecting, setIsRangeSelecting] = useState(false);
   const [rangeStartDate, setRangeStartDate] = useState<Date | null>(null);
+  const [rangeHoverDate, setRangeHoverDate] = useState<Date | null>(null);
   const [activeDateKey, setActiveDateKey] = useState("");
   const [commentsByDateKey, setCommentsByDateKey] = useState<{
     [dateKey: string]: string;
@@ -149,9 +102,20 @@ export default function AddDataScreen() {
   const [isCommentInputMounted, setIsCommentInputMounted] = useState(false);
   const [currentCommentText, setCurrentCommentText] = useState("");
 
+  const infoPanelOpacity = useRef(new Animated.Value(1)).current;
+  const infoPanelHeight = useRef(new Animated.Value(1)).current;
   const commentInputOpacity = useRef(new Animated.Value(0)).current;
   const commentInputHeight = useRef(new Animated.Value(0)).current;
+  const pageScrollRef = useRef<ScrollView | null>(null);
+  const calendarGridRef = useRef<View | null>(null);
+  const calendarGridLayout = useRef({ x: 0, y: 0, width: 0, height: 0 });
+  const calendarGridSize = useRef({ width: 0, height: 0 });
+  const dragMovedRef = useRef(false);
+  const suppressNextPressRef = useRef(false);
+  const rangeActiveRef = useRef(false);
   const rangeCategoryIdRef = useRef("");
+  const rangeStartDateRef = useRef<Date | null>(null);
+  const rangeHoverDateRef = useRef<Date | null>(null);
   const lastSelectedDateTapRef = useRef<{
     dateKey: string;
     timestamp: number;
@@ -159,6 +123,48 @@ export default function AddDataScreen() {
   const pendingSelectedDateTapRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
+
+  useEffect(() => {
+    if (showInfoPanel) {
+      // Reset to start values before mounting
+      infoPanelOpacity.setValue(0);
+      infoPanelHeight.setValue(0);
+      setIsInfoPanelMounted(true);
+
+      // Small delay to ensure component is mounted before animating
+      const timer = setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(infoPanelOpacity, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: false,
+          }),
+          Animated.timing(infoPanelHeight, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: false,
+          }),
+        ]).start();
+      }, 10);
+
+      return () => clearTimeout(timer);
+    } else {
+      Animated.parallel([
+        Animated.timing(infoPanelOpacity, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: false,
+        }),
+        Animated.timing(infoPanelHeight, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: false,
+        }),
+      ]).start(() => {
+        setIsInfoPanelMounted(false);
+      });
+    }
+  }, [showInfoPanel, infoPanelOpacity, infoPanelHeight]);
 
   useEffect(() => {
     if (showCommentInput) {
@@ -203,20 +209,8 @@ export default function AddDataScreen() {
   }, [showCommentInput, commentInputOpacity, commentInputHeight]);
 
   const currentDate = new Date();
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!hasOpenedAddDataTab) {
-        hasOpenedAddDataTab = true;
-
-        if (!isInfoPanelDismissedInSession) {
-          setShowInfoPanel(true);
-        }
-      }
-
-      return undefined;
-    }, []),
-  );
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth();
 
   useEffect(() => {
     fetchUsers();
@@ -258,6 +252,27 @@ export default function AddDataScreen() {
     }
   }
 
+  function getDaysInMonth(year: number, month: number) {
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = (firstDay.getDay() + 6) % 7;
+
+    const days: (Date | null)[] = [];
+
+    // Add empty cells for days before month starts
+    for (let i = 0; i < startDayOfWeek; i++) {
+      days.push(null);
+    }
+
+    // Add all days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(new Date(year, month, day));
+    }
+
+    return days;
+  }
+
   function formatDateForDB(date: Date | null): string {
     if (!date) return "";
     const year = date.getFullYear();
@@ -266,9 +281,19 @@ export default function AddDataScreen() {
     return `${year}-${month}-${day}`;
   }
 
-  function parseDateKey(dateKey: string): Date {
-    const [year, month, day] = dateKey.split("-").map(Number);
-    return new Date(year, month - 1, day);
+  function hexToRgba(hex: string, alpha: number) {
+    const cleaned = hex.replace("#", "");
+    const value =
+      cleaned.length === 3
+        ? cleaned
+            .split("")
+            .map((char) => char + char)
+            .join("")
+        : cleaned;
+    const r = parseInt(value.slice(0, 2), 16);
+    const g = parseInt(value.slice(2, 4), 16);
+    const b = parseInt(value.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
   function isSameDate(a: Date, b: Date): boolean {
@@ -288,6 +313,20 @@ export default function AddDataScreen() {
     categoryId: string,
   ): DateSelection | undefined {
     return selections.find((selection) => selection.categoryId === categoryId);
+  }
+
+  function getSelectionForDate(date: Date): DateSelection | null {
+    const dateKey = formatDateForDB(date);
+    for (let i = selections.length - 1; i >= 0; i -= 1) {
+      const selection = selections[i];
+      if (!selection.dates.includes(dateKey)) {
+        continue;
+      }
+
+      return selection;
+    }
+
+    return null;
   }
 
   function handleCategorySelect(categoryId: string) {
@@ -465,6 +504,41 @@ export default function AddDataScreen() {
     });
   }
 
+  function updateCalendarGridLayout() {
+    if (!calendarGridRef.current) {
+      return;
+    }
+
+    calendarGridRef.current.measureInWindow((x, y, width, height) => {
+      calendarGridLayout.current = { x, y, width, height };
+    });
+  }
+
+  function getDateFromPoint(
+    pageX: number,
+    pageY: number,
+    days: (Date | null)[],
+  ) {
+    const { x, y, width, height } = calendarGridLayout.current;
+    const localX = pageX - x;
+    const localY = pageY - y;
+
+    if (localX < 0 || localY < 0 || localX > width || localY > height) {
+      return null;
+    }
+
+    const cellSize = width / 7;
+    const column = Math.floor(localX / cellSize);
+    const row = Math.floor(localY / cellSize);
+    const index = row * 7 + column;
+
+    if (index < 0 || index >= days.length) {
+      return null;
+    }
+
+    return days[index];
+  }
+
   function clearAllSelections() {
     setSelectedUserId("");
     setSelectedCategory("");
@@ -472,11 +546,15 @@ export default function AddDataScreen() {
     setSelections([]);
     setActiveDateKey("");
     setIsRangeSelecting(false);
-    setRangeStartDate(null);
-    rangeCategoryIdRef.current = "";
     setCommentsByDateKey({});
     setShowCommentInput(false);
     setCurrentCommentText("");
+    pageScrollRef.current?.setNativeProps({ scrollEnabled: true });
+  }
+
+  function setRangeSelectionScrollLock(isLocked: boolean) {
+    setIsRangeSelecting(isLocked);
+    pageScrollRef.current?.setNativeProps({ scrollEnabled: !isLocked });
   }
 
   function isDateReachable(dateKey: string) {
@@ -537,15 +615,6 @@ export default function AddDataScreen() {
     setCurrentCommentText("");
   }
 
-  function handleInfoPanelClose() {
-    isInfoPanelDismissedInSession = true;
-    setShowInfoPanel(false);
-  }
-
-  function handleInfoPanelOpen() {
-    setShowInfoPanel(true);
-  }
-
   function submitComment() {
     if (!activeDateKey) {
       return;
@@ -573,28 +642,6 @@ export default function AddDataScreen() {
     day: Date,
     selectionMatch: DateSelection | null,
   ) {
-    if (isRangeSelecting && rangeStartDate) {
-      const rangeCategoryId =
-        rangeCategoryIdRef.current ||
-        selectedCategory ||
-        selectionMatch?.categoryId;
-
-      if (!rangeCategoryId) {
-        setIsRangeSelecting(false);
-        setRangeStartDate(null);
-        rangeCategoryIdRef.current = "";
-        Alert.alert("Info", "Izvēlies prombūtnes kategoriju");
-        return;
-      }
-
-      applyRangeSelection(rangeStartDate, day, rangeCategoryId);
-      setSelectedCategory(rangeCategoryId);
-      setIsRangeSelecting(false);
-      setRangeStartDate(null);
-      rangeCategoryIdRef.current = "";
-      return;
-    }
-
     if (pendingSelectedDateTapRef.current) {
       clearTimeout(pendingSelectedDateTapRef.current);
       pendingSelectedDateTapRef.current = null;
@@ -694,71 +741,29 @@ export default function AddDataScreen() {
     }
   }
 
-  const currentDateKey = formatDateForDB(currentDate);
+  const calendarDays = getDaysInMonth(currentYear, currentMonth);
+  const activeSelection = selectedCategory
+    ? getSelectionForCategory(selectedCategory)
+    : undefined;
+  const monthInLatvian = new Date(currentYear, currentMonth)
+    .toLocaleDateString("lv-LV", { month: "long" })
+    .toLocaleLowerCase("lv-LV");
+  const monthName = `${currentYear}. gada ${monthInLatvian}`;
+  const calendarDateKeys = new Set(
+    calendarDays
+      .filter((day): day is Date => day !== null)
+      .map((day) => formatDateForDB(day)),
+  );
+  const previewColor = selectedCategory
+    ? hexToRgba(getCategoryColor(selectedCategory), 0.3)
+    : null;
   const selectedDateKeys = useMemo(
     () => new Set(selections.flatMap((selection) => selection.dates)),
     [selections],
   );
-  const selectionByDateKey = useMemo(() => {
-    const map = new Map<string, DateSelection>();
-
-    for (const selection of selections) {
-      for (const dateKey of selection.dates) {
-        map.set(dateKey, selection);
-      }
-    }
-
-    return map;
-  }, [selections]);
   const isActiveDateReachable = activeDateKey
     ? isDateReachable(activeDateKey)
     : false;
-  const markedDates = useMemo(() => {
-    const marks: Record<string, any> = {};
-
-    for (const selection of selections) {
-      const selectionColor = getCategoryColor(selection.categoryId);
-
-      for (const dateKey of selection.dates) {
-        marks[dateKey] = {
-          selected: true,
-          selectedColor: selectionColor,
-          selectedTextColor: "#fff",
-        };
-      }
-    }
-
-    if (activeDateKey && marks[activeDateKey]) {
-      marks[activeDateKey] = {
-        ...marks[activeDateKey],
-        marked: true,
-        dotColor: "#ffffff",
-      };
-    }
-
-    if (isRangeSelecting && rangeStartDate) {
-      const rangeStartKey = formatDateForDB(rangeStartDate);
-      const rangeStartColor = selectedCategory
-        ? getCategoryColor(selectedCategory)
-        : theme.colors.accent;
-
-      marks[rangeStartKey] = {
-        ...(marks[rangeStartKey] || {}),
-        selected: true,
-        selectedColor: rangeStartColor,
-        selectedTextColor: "#fff",
-      };
-    }
-
-    return marks;
-  }, [
-    selections,
-    activeDateKey,
-    isRangeSelecting,
-    rangeStartDate,
-    selectedCategory,
-    theme.colors.accent,
-  ]);
 
   useEffect(() => {
     setReachableDateKeys((prev) => {
@@ -775,12 +780,6 @@ export default function AddDataScreen() {
     date: Date,
     selectionMatch: DateSelection | null,
   ) => {
-    if (pendingSelectedDateTapRef.current) {
-      clearTimeout(pendingSelectedDateTapRef.current);
-      pendingSelectedDateTapRef.current = null;
-    }
-    lastSelectedDateTapRef.current = null;
-
     const categoryForRange = selectedCategory || selectionMatch?.categoryId;
 
     if (!categoryForRange) {
@@ -793,11 +792,102 @@ export default function AddDataScreen() {
     }
 
     rangeCategoryIdRef.current = categoryForRange;
+
     ensureDateSelected(date, categoryForRange);
+
+    suppressNextPressRef.current = true;
+    dragMovedRef.current = false;
+    rangeActiveRef.current = true;
+    setRangeSelectionScrollLock(true);
     setRangeStartDate(date);
-    setIsRangeSelecting(true);
-    setActiveDateKey("");
+    rangeStartDateRef.current = date;
+
+    const nextDate = new Date(date);
+    nextDate.setDate(date.getDate() + 1);
+    const nextKey = formatDateForDB(nextDate);
+    const hoverDate = calendarDateKeys.has(nextKey) ? nextDate : null;
+    setRangeHoverDate(hoverDate);
+    rangeHoverDateRef.current = hoverDate;
+
+    updateCalendarGridLayout();
   };
+
+  const finishRangeSelection = () => {
+    if (!rangeActiveRef.current) {
+      suppressNextPressRef.current = false;
+      return;
+    }
+
+    rangeActiveRef.current = false;
+
+    const start = rangeStartDateRef.current;
+    const end = rangeHoverDateRef.current;
+    const shouldApply = dragMovedRef.current && start && end;
+
+    setRangeSelectionScrollLock(false);
+    setRangeStartDate(null);
+    setRangeHoverDate(null);
+    rangeStartDateRef.current = null;
+    rangeHoverDateRef.current = null;
+    const rangeCategoryId = rangeCategoryIdRef.current || selectedCategory;
+    rangeCategoryIdRef.current = "";
+    suppressNextPressRef.current = false;
+    dragMovedRef.current = false;
+
+    if (shouldApply) {
+      applyRangeSelection(start, end, rangeCategoryId);
+    }
+  };
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => rangeActiveRef.current,
+        onStartShouldSetPanResponderCapture: () => rangeActiveRef.current,
+        onMoveShouldSetPanResponder: () => rangeActiveRef.current,
+        onMoveShouldSetPanResponderCapture: () => rangeActiveRef.current,
+        onPanResponderGrant: () => {
+          if (rangeActiveRef.current) {
+            updateCalendarGridLayout();
+          }
+        },
+        onPanResponderMove: (_, gestureState) => {
+          if (!rangeActiveRef.current || !rangeStartDateRef.current) {
+            return;
+          }
+
+          if (!dragMovedRef.current) {
+            const moved =
+              Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
+            if (moved) {
+              dragMovedRef.current = true;
+            }
+          }
+
+          const hoverDate = getDateFromPoint(
+            gestureState.moveX,
+            gestureState.moveY,
+            calendarDays,
+          );
+
+          if (!hoverDate || isSameDate(hoverDate, rangeStartDateRef.current)) {
+            return;
+          }
+
+          if (
+            !rangeHoverDateRef.current ||
+            !isSameDate(hoverDate, rangeHoverDateRef.current)
+          ) {
+            setRangeHoverDate(hoverDate);
+            rangeHoverDateRef.current = hoverDate;
+            dragMovedRef.current = true;
+          }
+        },
+        onPanResponderRelease: finishRangeSelection,
+        onPanResponderTerminate: finishRangeSelection,
+      }),
+    [calendarDays, finishRangeSelection],
+  );
 
   if (loadingUsers) {
     return (
@@ -810,7 +900,7 @@ export default function AddDataScreen() {
 
   return (
     <ThemedView>
-      <ScrollView style={styles.container} scrollEnabled>
+      <ScrollView ref={pageScrollRef} style={styles.container} scrollEnabled>
         <ThemedView style={styles.contentRoot}>
           {/* User Selection */}
           <View style={styles.headerUserContainer}>
@@ -863,61 +953,74 @@ export default function AddDataScreen() {
           </ThemedCardSection>
         </ThemedView>
 
-        <ThemedSpacer size="m" />
-
-        {showInfoPanel && (
-          <ThemedCardSection style={styles.infoCardSection}>
-            <View style={styles.infoPanelTopRow}>
-              <View style={styles.infoBadge}>
-                <FontAwesome6
-                  name="circle-info"
-                  size={35}
-                  color={theme.colors.accent}
-                />
-              </View>
-              <TouchableOpacity
-                style={styles.infoToggleButton}
-                onPress={handleInfoPanelClose}
-                accessibilityLabel="Hide info"
-              >
-                <Ionicons name="close" size={20} color={theme.colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            <Text
-              style={[
-                styles.infoPanelDescription,
-                { color: theme.colors.text },
-              ]}
-            >
-              Izvēlies kategoriju, tad kalendāra datumus, kuros būsi prombūtnē,
-              tad nākamo kategoriju un datumus.
-            </Text>
-            <Text
-              style={[
-                styles.infoPanelDescription,
-                { color: theme.colors.text },
-              ]}
-            >
-              Ja vēlies atzīmēt garāku periodu, turi nospiestu pirmo datumu un
-              tad pieskaries beigu datumam.
-            </Text>
-            <Text
-              style={[
-                styles.infoPanelDescription,
-                { color: theme.colors.text },
-              ]}
-            >
-              Ja vēlies, vari pievienot īsu komentāru un norādīt, vai būsi
-              sazvanāms. Aktivizē izvēlēto datumus divreiz klikšķinot uz tā.
-              Atzīmē vai būsi sazvanāms, spied pogu "Īss komentārs" un ieraksti
-              savu komentāru. Kad esi izdarījis savas izvēles, spied pogu
-              "Apstiprināt visas izvēles".
-            </Text>
-          </ThemedCardSection>
+        {isInfoPanelMounted && (
+          <Animated.View
+            style={{
+              opacity: infoPanelOpacity,
+              maxHeight: infoPanelHeight.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 320],
+              }),
+              overflow: "visible",
+            }}
+          >
+            <ThemedView style={styles.formSectionContentInfo}>
+              <ThemedView style={styles.infoPanelContainer}>
+                <ThemedView style={styles.infoPanelContent}>
+                  <ThemedView style={styles.infoPanelHeader}>
+                    <ThemedView style={styles.infoBadge}>
+                      <Text style={styles.infoBadgeText}>i</Text>
+                    </ThemedView>
+                  </ThemedView>
+                  <ThemedView style={styles.infoTextBlock}>
+                    <Text
+                      style={[
+                        styles.infoPanelDescription,
+                        { color: theme.colors.text },
+                      ]}
+                    >
+                      Izvēlies kategoriju, tad kalendāra datumus, kuros būsi
+                      prombūtnē, tad nākamo kategoriju un datumus.
+                    </Text>
+                    <Text
+                      style={[
+                        styles.infoPanelDescription,
+                        { color: theme.colors.text },
+                      ]}
+                    >
+                      Ja vēlies atzīmēt garāku periodu, spied uz pirmā datuma
+                      un, neatlaižot pirkstu, izvēlies pēdējo datumu.
+                    </Text>
+                    <Text
+                      style={[
+                        styles.infoPanelDescription,
+                        { color: theme.colors.text },
+                      ]}
+                    >
+                      Ja vēlies, vari pievienot īsu komentāru un norādīt, vai
+                      būsi sazvanāms. Aktivizē izvēlēto datumus divreiz
+                      klikšķinot uz tā. Atzīmē vai būsi sazvanāms, spied pogu
+                      "Īss komentārs" un ieraksti savu komentāru. Kad esi
+                      izdarījis savas izvēles, spied pogu "Apstiprināt visas
+                      izvēles".
+                    </Text>
+                  </ThemedView>
+                  <TouchableOpacity
+                    style={styles.infoToggleButton}
+                    onPress={() => setShowInfoPanel(false)}
+                    accessibilityLabel="Hide info"
+                  >
+                    <Ionicons
+                      name="close"
+                      size={16}
+                      color={theme.colors.text}
+                    />
+                  </TouchableOpacity>
+                </ThemedView>
+              </ThemedView>
+            </ThemedView>
+          </Animated.View>
         )}
-
-        <ThemedSpacer size="m" />
 
         {/* Form Section: Category, Options, Dates, Calendar, and Buttons */}
         <ThemedCardSection>
@@ -929,7 +1032,7 @@ export default function AddDataScreen() {
             {!showInfoPanel && (
               <TouchableOpacity
                 style={styles.infoButton}
-                onPress={handleInfoPanelOpen}
+                onPress={() => setShowInfoPanel(true)}
                 accessibilityLabel="Show info"
               >
                 <Text style={styles.infoToggleText}>i</Text>
@@ -1099,53 +1202,219 @@ export default function AddDataScreen() {
           )}
 
           <ThemedView style={styles.calendarContainer}>
-            {isRangeSelecting && rangeStartDate && (
-              <Text
-                style={[
-                  styles.rangeHintText,
-                  { color: theme.colors.textSecondary },
-                ]}
-              >
-                Atlasi periodu: pieskaries beigu datumam.
-              </Text>
-            )}
+            <Text
+              style={[styles.monthLabel, { color: theme.colors.textSecondary }]}
+            >
+              {monthName}
+            </Text>
 
-            <Calendar
-              current={currentDateKey}
-              firstDay={1}
-              hideExtraDays
-              enableSwipeMonths
-              onDayPress={(date: DateData) => {
-                const selectedForDay =
-                  selectionByDateKey.get(date.dateString) ?? null;
-                handleCalendarDayPress(
-                  parseDateKey(date.dateString),
-                  selectedForDay,
+            {/* Weekday headers */}
+            <View style={styles.weekdayHeader}>
+              {["P", "O", "T", "C", "P", "S", "Sv"].map((day, index) => (
+                <View key={index} style={styles.weekdayCell}>
+                  <Text
+                    style={[
+                      styles.weekdayText,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    {day}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Calendar grid */}
+            <View
+              ref={calendarGridRef}
+              style={styles.calendarGrid}
+              onLayout={(event) => {
+                const { width, height } = event.nativeEvent.layout;
+                calendarGridSize.current = { width, height };
+                updateCalendarGridLayout();
+              }}
+              {...panResponder.panHandlers}
+            >
+              {calendarDays.map((day, index) => {
+                const selectionMatch = day ? getSelectionForDate(day) : null;
+                const selectionColor = selectionMatch
+                  ? getCategoryColor(selectionMatch.categoryId)
+                  : undefined;
+                const dayKey = day ? formatDateForDB(day) : "";
+                const hasComment = Boolean(dayKey && commentsByDateKey[dayKey]);
+                const isActiveDay = Boolean(dayKey && dayKey === activeDateKey);
+                const backgroundColor = selectionMatch
+                  ? selectionColor
+                  : undefined;
+                const textColor = selectionMatch ? "#fff" : undefined;
+                const showReachableBadge = Boolean(
+                  selectionMatch &&
+                    dayKey &&
+                    isDateReachable(dayKey) &&
+                    selectionColor,
                 );
-              }}
-              onDayLongPress={(date: DateData) => {
-                const selectedForDay =
-                  selectionByDateKey.get(date.dateString) ?? null;
-                startRangeSelection(
-                  parseDateKey(date.dateString),
-                  selectedForDay,
+                const isWeekend = day
+                  ? day.getDay() === 0 || day.getDay() === 6
+                  : false;
+                const isPreviewStart =
+                  day &&
+                  previewColor &&
+                  isRangeSelecting &&
+                  rangeStartDate &&
+                  isSameDate(day, rangeStartDate);
+                const previewStartColor =
+                  isPreviewStart && selectedCategory
+                    ? getCategoryColor(selectedCategory)
+                    : null;
+                const isPreviewRange =
+                  day &&
+                  previewColor &&
+                  isRangeSelecting &&
+                  rangeStartDate &&
+                  rangeHoverDate &&
+                  !isSameDate(day, rangeStartDate) &&
+                  ((day >= rangeStartDate && day <= rangeHoverDate) ||
+                    (day >= rangeHoverDate && day <= rangeStartDate));
+
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.dayCell, !day && styles.dayCellEmpty]}
+                    onPress={() => {
+                      if (!day) {
+                        return;
+                      }
+                      if (suppressNextPressRef.current) {
+                        if (rangeActiveRef.current && !dragMovedRef.current) {
+                          finishRangeSelection();
+                        }
+                        return;
+                      }
+                      handleCalendarDayPress(day, selectionMatch);
+                    }}
+                    onLongPress={() => {
+                      if (!day) {
+                        return;
+                      }
+                      startRangeSelection(day, selectionMatch);
+                    }}
+                    onPressOut={() => {
+                      if (rangeActiveRef.current && !dragMovedRef.current) {
+                        setTimeout(() => {
+                          if (rangeActiveRef.current && !dragMovedRef.current) {
+                            finishRangeSelection();
+                          }
+                        }, 300);
+                      }
+                    }}
+                    delayLongPress={300}
+                    disabled={!day}
+                  >
+                    {day && (
+                      <View
+                        style={[
+                          styles.dayCellSurface,
+                          selectionMatch && styles.dayCellSelected,
+                          backgroundColor && { backgroundColor },
+                          isPreviewStart &&
+                            previewStartColor && {
+                              backgroundColor: previewStartColor,
+                            },
+                          isPreviewRange && { backgroundColor: previewColor },
+                        ]}
+                        pointerEvents="none"
+                      >
+                        {isActiveDay && selectionColor && (
+                          <View
+                            style={[
+                              styles.activeDayOutline,
+                              { borderColor: selectionColor },
+                            ]}
+                            pointerEvents="none"
+                          />
+                        )}
+
+                        <View
+                          style={styles.dayTextContainer}
+                          pointerEvents="none"
+                        >
+                          <View
+                            style={styles.dayTextContainer}
+                            pointerEvents="none"
+                          >
+                            <Text
+                              style={[
+                                styles.dayText,
+                                { color: theme.colors.textSecondary },
+                                selectionMatch && styles.dayTextSelected,
+                                isWeekend &&
+                                  !selectionMatch &&
+                                  styles.dayTextWeekend,
+                                textColor && { color: textColor },
+                              ]}
+                              pointerEvents="none"
+                            >
+                              {day.getDate()}
+                            </Text>
+
+                            {showReachableBadge && selectionColor && (
+                              <View
+                                style={styles.reachableBadgeAnchor}
+                                pointerEvents="none"
+                              >
+                                <View
+                                  style={[
+                                    styles.reachableBadge,
+                                    { borderColor: selectionColor },
+                                  ]}
+                                >
+                                  <Ionicons
+                                    name="call"
+                                    size={8}
+                                    color={selectionColor}
+                                  />
+                                </View>
+                              </View>
+                            )}
+
+                            {hasComment && (
+                              <View
+                                style={styles.commentBadgeAnchor}
+                                pointerEvents="none"
+                              >
+                                <View
+                                  style={[
+                                    styles.commentBadge,
+                                    {
+                                      borderColor:
+                                        selectionColor ||
+                                        categoriesColor.slimiba,
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.commentBadgeText,
+                                      {
+                                        color:
+                                          selectionColor ||
+                                          categoriesColor.slimiba,
+                                      },
+                                    ]}
+                                  >
+                                    T
+                                  </Text>
+                                </View>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                  </TouchableOpacity>
                 );
-              }}
-              markedDates={markedDates}
-              theme={{
-                backgroundColor: "transparent",
-                calendarBackground: "transparent",
-                textSectionTitleColor: theme.colors.textSecondary,
-                monthTextColor: theme.colors.text,
-                dayTextColor: theme.colors.textSecondary,
-                todayTextColor: theme.colors.accent,
-                textMonthFontWeight: "600",
-                textMonthFontSize: 16,
-                textDayHeaderFontWeight: "600",
-                textDayHeaderFontSize: 12,
-                selectedDayTextColor: "#fff",
-              }}
-            />
+              })}
+            </View>
           </ThemedView>
         </ThemedCardSection>
 
@@ -1311,29 +1580,60 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
     justifyContent: "flex-start",
   },
-  infoCardSection: {
+  formSectionContentInfo: {
     borderColor: categoriesColor.slimiba,
+    marginBottom: 0,
+    backgroundColor: "#f8f9fa",
+    paddingTop: 0,
+    borderRadius: 12,
     borderWidth: 1,
-    backgroundColor: "transparent",
-    padding: 16,
+    marginHorizontal: 12,
+    marginTop: 15,
   },
-  infoPanelTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
+  infoPanelContainer: {
+    position: "relative",
+    minHeight: 140,
+    padding: 0,
+  },
+  infoPanelContent: {
+    paddingTop: 16,
+    paddingBottom: 8,
+    paddingHorizontal: 12,
+    paddingRight: 40,
+    flex: 0,
+  },
+  infoPanelHeader: {
+    marginBottom: 6,
+    padding: 0,
+    flex: 0,
+  },
+  infoTextBlock: {
+    padding: 0,
+    flex: 0,
   },
   infoBadge: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
+    borderRadius: 50,
+    backgroundColor: "#007bff",
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 8,
+    marginTop: 0,
+  },
+  infoBadgeText: {
+    fontSize: 30,
+    fontWeight: "700",
+    color: "#fff",
   },
   infoPanelDescription: {
     fontSize: 13,
     marginBottom: 12,
   },
   infoToggleButton: {
+    position: "absolute",
+    top: 24,
+    right: 24,
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -1342,9 +1642,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 2,
+    elevation: 2,
   },
   infoToggleText: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: "700",
     color: "#ffffff",
   },
@@ -1523,11 +1825,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 12,
   },
-  rangeHintText: {
-    fontSize: 12,
-    marginBottom: 8,
-    textAlign: "center",
-  },
   monthLabel: {
     fontSize: 16,
     fontWeight: "600",
@@ -1557,10 +1854,9 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   dayCell: {
-    width: "100%",
-    height: "100%",
-    minHeight: 36,
-    padding: 1,
+    width: "14.28%",
+    aspectRatio: 1,
+    padding: 2,
     alignItems: "center",
     justifyContent: "center",
   },
