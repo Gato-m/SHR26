@@ -81,7 +81,7 @@ const CATEGORIES: Category[] = [
 ];
 
 let hasOpenedAddDataTab = false;
-let isInfoPanelDismissedInSession = false;
+let isInfoPanelDismissedInSession = true;
 
 LocaleConfig.locales.lv = {
   monthNames: [
@@ -139,6 +139,9 @@ export default function AddDataScreen() {
   const [showInfoPanel, setShowInfoPanel] = useState(
     !isInfoPanelDismissedInSession,
   );
+  const [isInfoPanelMounted, setIsInfoPanelMounted] = useState(
+    !isInfoPanelDismissedInSession,
+  );
   const [isRangeSelecting, setIsRangeSelecting] = useState(false);
   const [rangeStartDate, setRangeStartDate] = useState<Date | null>(null);
   const [activeDateKey, setActiveDateKey] = useState("");
@@ -147,10 +150,15 @@ export default function AddDataScreen() {
   }>({});
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [isCommentInputMounted, setIsCommentInputMounted] = useState(false);
+  const [isRangeHintMounted, setIsRangeHintMounted] = useState(false);
   const [currentCommentText, setCurrentCommentText] = useState("");
 
   const commentInputOpacity = useRef(new Animated.Value(0)).current;
   const commentInputHeight = useRef(new Animated.Value(0)).current;
+  const rangeHintProgress = useRef(new Animated.Value(0)).current;
+  const infoPanelProgress = useRef(
+    new Animated.Value(!isInfoPanelDismissedInSession ? 1 : 0),
+  ).current;
   const rangeCategoryIdRef = useRef("");
   const lastSelectedDateTapRef = useRef<{
     dateKey: string;
@@ -202,6 +210,30 @@ export default function AddDataScreen() {
     }
   }, [showCommentInput, commentInputOpacity, commentInputHeight]);
 
+  const shouldShowRangeHint = isRangeSelecting && Boolean(rangeStartDate);
+
+  useEffect(() => {
+    if (shouldShowRangeHint) {
+      setIsRangeHintMounted(true);
+      Animated.timing(rangeHintProgress, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: false,
+      }).start();
+      return;
+    }
+
+    Animated.timing(rangeHintProgress, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (finished) {
+        setIsRangeHintMounted(false);
+      }
+    });
+  }, [shouldShowRangeHint, rangeHintProgress]);
+
   const currentDate = new Date();
 
   useFocusEffect(
@@ -211,6 +243,8 @@ export default function AddDataScreen() {
 
         if (!isInfoPanelDismissedInSession) {
           setShowInfoPanel(true);
+          setIsInfoPanelMounted(true);
+          infoPanelProgress.setValue(1);
         }
       }
 
@@ -269,6 +303,11 @@ export default function AddDataScreen() {
   function parseDateKey(dateKey: string): Date {
     const [year, month, day] = dateKey.split("-").map(Number);
     return new Date(year, month - 1, day);
+  }
+
+  function isWeekendDateKey(dateKey: string): boolean {
+    const day = parseDateKey(dateKey).getDay();
+    return day === 0 || day === 6;
   }
 
   function isSameDate(a: Date, b: Date): boolean {
@@ -538,12 +577,35 @@ export default function AddDataScreen() {
   }
 
   function handleInfoPanelClose() {
+    if (!isInfoPanelMounted) {
+      return;
+    }
+
     isInfoPanelDismissedInSession = true;
     setShowInfoPanel(false);
+
+    Animated.timing(infoPanelProgress, {
+      toValue: 0,
+      duration: 260,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (finished) {
+        setIsInfoPanelMounted(false);
+      }
+    });
   }
 
   function handleInfoPanelOpen() {
+    isInfoPanelDismissedInSession = false;
     setShowInfoPanel(true);
+    setIsInfoPanelMounted(true);
+    infoPanelProgress.setValue(0);
+
+    Animated.timing(infoPanelProgress, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
   }
 
   function submitComment() {
@@ -614,24 +676,10 @@ export default function AddDataScreen() {
       return;
     }
 
-    const dateKey = formatDateForDB(day);
-    const now = Date.now();
-    const lastTap = lastSelectedDateTapRef.current;
-    const isDoubleTap =
-      lastTap && lastTap.dateKey === dateKey && now - lastTap.timestamp <= 320;
-
-    if (isDoubleTap) {
-      lastSelectedDateTapRef.current = null;
-      setActiveDateKey(dateKey);
-      setSelectedCategory(selectionMatch.categoryId);
-      return;
-    }
-
-    lastSelectedDateTapRef.current = { dateKey, timestamp: now };
-    pendingSelectedDateTapRef.current = setTimeout(() => {
-      pendingSelectedDateTapRef.current = null;
-      lastSelectedDateTapRef.current = null;
-    }, 320);
+    setSelectedCategory(selectionMatch.categoryId);
+    setActiveDateKey("");
+    lastSelectedDateTapRef.current = null;
+    handleDateSelect(day);
   }
 
   async function handleSubmit() {
@@ -821,10 +869,9 @@ export default function AddDataScreen() {
           </View>
 
           <ThemedCardSection>
-            <ThemedText variant="subtitle" style={{ color: theme.colors.text }}>
-              Personāls
+            <ThemedText style={[styles.label, { color: theme.colors.text }]}>
+              Darbinieki
             </ThemedText>
-            <ThemedSpacer size="m" />
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -865,78 +912,120 @@ export default function AddDataScreen() {
 
         <ThemedSpacer size="m" />
 
-        {showInfoPanel && (
-          <ThemedCardSection style={styles.infoCardSection}>
-            <View style={styles.infoPanelTopRow}>
-              <View style={styles.infoBadge}>
-                <FontAwesome6
-                  name="circle-info"
-                  size={35}
-                  color={theme.colors.accent}
-                />
+        {isInfoPanelMounted && (
+          <Animated.View
+            style={[
+              styles.infoPanelAnimatedWrapper,
+              {
+                opacity: infoPanelProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 1],
+                }),
+                maxHeight: infoPanelProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 320],
+                }),
+                marginBottom: infoPanelProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 12],
+                }),
+                transform: [
+                  {
+                    translateY: infoPanelProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-18, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <ThemedCardSection style={styles.infoCardSection}>
+              <View style={styles.infoPanelTopRow}>
+                <View style={styles.infoBadge}>
+                  <FontAwesome6
+                    name="circle-info"
+                    size={35}
+                    color={theme.colors.accent}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={styles.infoToggleButton}
+                  onPress={handleInfoPanelClose}
+                  accessibilityLabel="Hide info"
+                >
+                  <Ionicons
+                    name="close"
+                    size={20}
+                    color={theme.colors.gray800}
+                  />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.infoToggleButton}
-                onPress={handleInfoPanelClose}
-                accessibilityLabel="Hide info"
+
+              <Text
+                style={[
+                  styles.infoPanelDescription,
+                  { color: theme.colors.text },
+                ]}
               >
-                <Ionicons name="close" size={20} color={theme.colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            <Text
-              style={[
-                styles.infoPanelDescription,
-                { color: theme.colors.text },
-              ]}
-            >
-              Izvēlies kategoriju, tad kalendāra datumus, kuros būsi prombūtnē,
-              tad nākamo kategoriju un datumus.
-            </Text>
-            <Text
-              style={[
-                styles.infoPanelDescription,
-                { color: theme.colors.text },
-              ]}
-            >
-              Ja vēlies atzīmēt garāku periodu, turi nospiestu pirmo datumu un
-              tad pieskaries beigu datumam.
-            </Text>
-            <Text
-              style={[
-                styles.infoPanelDescription,
-                { color: theme.colors.text },
-              ]}
-            >
-              Ja vēlies, vari pievienot īsu komentāru un norādīt, vai būsi
-              sazvanāms. Aktivizē izvēlēto datumus divreiz klikšķinot uz tā.
-              Atzīmē vai būsi sazvanāms, spied pogu "Īss komentārs" un ieraksti
-              savu komentāru. Kad esi izdarījis savas izvēles, spied pogu
-              "Apstiprināt visas izvēles".
-            </Text>
-          </ThemedCardSection>
+                Izvēlies kategoriju, tad kalendāra datumus, kuros būsi
+                prombūtnē, tad nākamo kategoriju un datumus.
+              </Text>
+              <Text
+                style={[
+                  styles.infoPanelDescription,
+                  { color: theme.colors.text },
+                ]}
+              >
+                Ja vēlies atzīmēt garāku periodu, turi nospiestu pirmo datumu un
+                tad pieskaries beigu datumam.
+              </Text>
+              <Text
+                style={[
+                  styles.infoPanelDescription,
+                  { color: theme.colors.text },
+                ]}
+              >
+                Ja vēlies, vari pievienot īsu komentāru un norādīt, vai būsi
+                sazvanāms. Aktivizē izvēlēto datumus divreiz klikšķinot uz tā.
+                Atzīmē vai būsi sazvanāms, spied pogu "Īss komentārs" un
+                ieraksti savu komentāru. Kad esi izdarījis savas izvēles, spied
+                pogu "Apstiprināt visas izvēles".
+              </Text>
+            </ThemedCardSection>
+          </Animated.View>
         )}
-
-        <ThemedSpacer size="m" />
 
         {/* Form Section: Category, Options, Dates, Calendar, and Buttons */}
         <ThemedCardSection>
-          <ThemedView style={styles.categoryTitleContainer}>
-            <ThemedText variant="subtitle" style={{ color: theme.colors.text }}>
-              Izvēlies prombūtnes kategoriju *
-            </ThemedText>
-            <ThemedSpacer size="m" />
-            {!showInfoPanel && (
-              <TouchableOpacity
-                style={styles.infoButton}
-                onPress={handleInfoPanelOpen}
-                accessibilityLabel="Show info"
-              >
-                <Text style={styles.infoToggleText}>i</Text>
-              </TouchableOpacity>
-            )}
-          </ThemedView>
-          <ThemedView style={styles.categoryGrid}>
+          <View style={styles.categoryTitleContainer}>
+            <View style={styles.categoryTitleRow}>
+              <ThemedText style={[styles.label, { color: theme.colors.text }]}>
+                Izvēlies prombūtnes kategoriju *
+              </ThemedText>
+              {!showInfoPanel && !isInfoPanelMounted && (
+                <TouchableOpacity
+                  style={styles.infoButton}
+                  onPress={handleInfoPanelOpen}
+                  accessibilityLabel="Show info"
+                >
+                  <FontAwesome6
+                    name="circle-info"
+                    size={28}
+                    color={theme.colors.accent}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+          <ThemedView
+            style={[
+              styles.categoryGrid,
+              !showInfoPanel &&
+                !isInfoPanelMounted &&
+                styles.categoryGridInfoClosed,
+            ]}
+          >
             {CATEGORIES.map((category) => {
               const isCategoryActive = selectedCategory === category.id;
               const hasCategorySelection = selections.some(
@@ -1099,53 +1188,129 @@ export default function AddDataScreen() {
           )}
 
           <ThemedView style={styles.calendarContainer}>
-            {isRangeSelecting && rangeStartDate && (
-              <Text
+            {isRangeHintMounted && (
+              <Animated.View
                 style={[
-                  styles.rangeHintText,
-                  { color: theme.colors.textSecondary },
+                  styles.rangeHintAnimatedWrapper,
+                  {
+                    opacity: rangeHintProgress,
+                  },
                 ]}
               >
-                Atlasi periodu: pieskaries beigu datumam.
-              </Text>
+                <Text style={styles.rangeHintText}>
+                  Atlasi periodu: pieskaries beigu datumam.
+                </Text>
+              </Animated.View>
             )}
 
-            <Calendar
-              current={currentDateKey}
-              firstDay={1}
-              hideExtraDays
-              enableSwipeMonths
-              onDayPress={(date: DateData) => {
-                const selectedForDay =
-                  selectionByDateKey.get(date.dateString) ?? null;
-                handleCalendarDayPress(
-                  parseDateKey(date.dateString),
-                  selectedForDay,
-                );
-              }}
-              onDayLongPress={(date: DateData) => {
-                const selectedForDay =
-                  selectionByDateKey.get(date.dateString) ?? null;
-                startRangeSelection(
-                  parseDateKey(date.dateString),
-                  selectedForDay,
-                );
-              }}
-              markedDates={markedDates}
-              theme={{
-                backgroundColor: "transparent",
-                calendarBackground: "transparent",
-                textSectionTitleColor: theme.colors.textSecondary,
-                monthTextColor: theme.colors.text,
-                dayTextColor: theme.colors.textSecondary,
-                todayTextColor: theme.colors.accent,
-                textMonthFontWeight: "600",
-                textMonthFontSize: 16,
-                textDayHeaderFontWeight: "600",
-                textDayHeaderFontSize: 12,
-                selectedDayTextColor: "#fff",
-              }}
-            />
+            <Animated.View
+              style={[
+                styles.calendarAnimatedWrapper,
+                {
+                  transform: [
+                    {
+                      translateY: rangeHintProgress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, 8],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Calendar
+                current={currentDateKey}
+                firstDay={1}
+                hideExtraDays
+                enableSwipeMonths
+                onDayPress={(date: DateData) => {
+                  const selectedForDay =
+                    selectionByDateKey.get(date.dateString) ?? null;
+                  handleCalendarDayPress(
+                    parseDateKey(date.dateString),
+                    selectedForDay,
+                  );
+                }}
+                onDayLongPress={(date: DateData) => {
+                  const selectedForDay =
+                    selectionByDateKey.get(date.dateString) ?? null;
+                  startRangeSelection(
+                    parseDateKey(date.dateString),
+                    selectedForDay,
+                  );
+                }}
+                markedDates={markedDates}
+                dayComponent={({ date, marking }) => {
+                  if (!date) {
+                    return null;
+                  }
+
+                  const dateKey = date.dateString;
+                  const selectedForDay =
+                    selectionByDateKey.get(dateKey) ?? null;
+                  const isSelected = Boolean(marking?.selected);
+                  const isWeekend = isWeekendDateKey(dateKey);
+                  const isToday = dateKey === currentDateKey;
+
+                  const dayTextColor = isSelected
+                    ? "#fff"
+                    : isWeekend
+                      ? categoriesColor.slimiba
+                      : isToday
+                        ? theme.colors.text
+                        : theme.colors.text;
+
+                  return (
+                    <TouchableOpacity
+                      style={[
+                        styles.calendarDayPressable,
+                        isSelected && {
+                          backgroundColor:
+                            (marking as { selectedColor?: string })
+                              ?.selectedColor ?? theme.colors.accent,
+                        },
+                      ]}
+                      onPress={() => {
+                        handleCalendarDayPress(
+                          parseDateKey(dateKey),
+                          selectedForDay,
+                        );
+                      }}
+                      onLongPress={() => {
+                        startRangeSelection(
+                          parseDateKey(dateKey),
+                          selectedForDay,
+                        );
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.dayText,
+                          isSelected && styles.dayTextSelected,
+                          { color: dayTextColor },
+                        ]}
+                      >
+                        {date.day}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                }}
+                theme={{
+                  backgroundColor: "transparent",
+                  calendarBackground: "transparent",
+                  textSectionTitleColor: theme.colors.textSecondary,
+                  monthTextColor: theme.colors.text,
+                  dayTextColor: theme.colors.text,
+                  todayTextColor: theme.colors.accent,
+                  textMonthFontWeight: "600",
+                  textMonthFontSize: 16,
+                  textDayFontWeight: "600",
+                  textDayHeaderFontWeight: "600",
+                  textDayHeaderFontSize: 12,
+                  selectedDayTextColor: "#fff",
+                }}
+              />
+            </Animated.View>
           </ThemedView>
         </ThemedCardSection>
 
@@ -1154,8 +1319,8 @@ export default function AddDataScreen() {
             style={[
               styles.clearButton,
               {
-                backgroundColor: theme.colors.primary,
-                borderColor: theme.colors.accent,
+                backgroundColor: categoriesColor.slimiba,
+                borderColor: categoriesColor.slimiba,
               },
             ]}
             onPress={clearAllSelections}
@@ -1163,10 +1328,10 @@ export default function AddDataScreen() {
             <Ionicons
               name="close-circle-outline"
               size={24}
-              color={theme.colors.accent}
+              color={theme.colors.white}
             />
             <Text
-              style={[styles.clearButtonText, { color: theme.colors.text }]}
+              style={[styles.clearButtonText, { color: theme.colors.white }]}
             >
               Dzēst visas izvēles
             </Text>
@@ -1176,8 +1341,8 @@ export default function AddDataScreen() {
             style={[
               styles.submitButton,
               {
-                backgroundColor: theme.colors.primary,
-                borderColor: theme.colors.accent,
+                backgroundColor: categoriesColor.maaciibas,
+                borderColor: categoriesColor.maaciibas,
               },
               loading && {
                 backgroundColor: theme.colors.gray400,
@@ -1266,7 +1431,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
-    marginBottom: 12,
+    marginBottom: 15,
+    textAlign: "left",
+    alignSelf: "flex-start",
+    marginLeft: 0,
+    paddingLeft: 0,
   },
   headerRow: {
     flexDirection: "row",
@@ -1274,12 +1443,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   infoButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#007bff",
-    backgroundColor: "#007bff",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    marginTop: -4,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1317,6 +1484,9 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     padding: 16,
   },
+  infoPanelAnimatedWrapper: {
+    overflow: "hidden",
+  },
   infoPanelTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1342,11 +1512,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-  },
-  infoToggleText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#ffffff",
   },
   userScroll: {
     flexDirection: "row",
@@ -1383,10 +1548,21 @@ const styles = StyleSheet.create({
     flex: 0,
     backgroundColor: "transparent",
   },
+  categoryGridInfoClosed: {
+    marginTop: 2,
+  },
   categoryTitleContainer: {
     backgroundColor: "transparent",
     padding: 0,
+    paddingTop: 5,
     flex: 0,
+  },
+  categoryTitleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: "transparent",
   },
   categoryChip: {
     flexDirection: "row",
@@ -1524,9 +1700,17 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   rangeHintText: {
-    fontSize: 12,
+    fontSize: 14,
+    color: categoriesColor.slimiba,
     marginBottom: 8,
     textAlign: "center",
+  },
+  rangeHintAnimatedWrapper: {
+    overflow: "visible",
+    paddingTop: 4,
+  },
+  calendarAnimatedWrapper: {
+    backgroundColor: "transparent",
   },
   monthLabel: {
     fontSize: 16,
@@ -1599,8 +1783,15 @@ const styles = StyleSheet.create({
   dayText: {
     fontSize: 14,
     color: "#333",
-    fontWeight: "500",
+    fontWeight: "600",
     includeFontPadding: false,
+  },
+  calendarDayPressable: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
   dayTextWeekend: {
     color: categoriesColor.slimiba,
