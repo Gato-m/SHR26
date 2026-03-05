@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@shopify/restyle";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -99,6 +100,7 @@ export default function ProfileModal() {
   const [selectedMonth, setSelectedMonth] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   );
+  const barFillProgress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     async function fetchUser() {
@@ -229,6 +231,20 @@ export default function ProfileModal() {
     });
   }, [absences, selectedMonth]);
 
+  useEffect(() => {
+    if (loading || error || !user) {
+      return;
+    }
+
+    barFillProgress.setValue(0);
+    Animated.spring(barFillProgress, {
+      toValue: 1,
+      tension: 170,
+      friction: 7,
+      useNativeDriver: false,
+    }).start();
+  }, [loading, error, user, selectedMonth, absences, barFillProgress]);
+
   return (
     <>
       <Stack.Screen
@@ -276,20 +292,44 @@ export default function ProfileModal() {
               />
               <ThemedText style={styles.userName}>{user.name}</ThemedText>
               {user.position && (
-                <ThemedText style={styles.userMeta}>{user.position}</ThemedText>
+                <ThemedText
+                  style={[
+                    styles.userMeta,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  {user.position}
+                </ThemedText>
               )}
               {user.email && (
-                <ThemedText style={styles.userMeta}>{user.email}</ThemedText>
+                <ThemedText
+                  style={[
+                    styles.userMeta,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  {user.email}
+                </ThemedText>
               )}
               {user.phone && (
-                <ThemedText style={styles.userMeta}>
+                <ThemedText
+                  style={[
+                    styles.userMeta,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
                   Tālrunis: {user.phone}
                 </ThemedText>
               )}
             </View>
 
             <View style={styles.statsSection}>
-              <ThemedText style={styles.statsTitle}>
+              <ThemedText
+                style={[
+                  styles.statsTitle,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
                 Prombūtnes statistika
               </ThemedText>
 
@@ -310,7 +350,14 @@ export default function ProfileModal() {
                   />
                 </TouchableOpacity>
 
-                <ThemedText style={styles.monthText}>{monthLabel}</ThemedText>
+                <ThemedText
+                  style={[
+                    styles.monthText,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  {monthLabel}
+                </ThemedText>
 
                 <TouchableOpacity
                   style={styles.monthArrow}
@@ -359,7 +406,7 @@ export default function ProfileModal() {
                         backgroundColor:
                           mode === "dark"
                             ? theme.colors.primary
-                            : theme.colors.gray100,
+                            : theme.colors.primaryDark,
                         borderColor:
                           mode === "dark"
                             ? theme.colors.primary
@@ -367,12 +414,15 @@ export default function ProfileModal() {
                       },
                     ]}
                   >
-                    <View
+                    <Animated.View
                       style={[
                         styles.barFill,
                         {
                           backgroundColor: category.color,
-                          width: `${category.percentage}%`,
+                          width: barFillProgress.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ["0%", `${category.percentage}%`],
+                          }),
                         },
                       ]}
                     />
@@ -407,6 +457,7 @@ const styles = StyleSheet.create({
   },
   userMeta: {
     marginTop: 2,
+    fontSize: 15,
   },
   statsSection: {
     marginTop: 4,
@@ -414,7 +465,7 @@ const styles = StyleSheet.create({
   statsTitle: {
     fontSize: 18,
     fontWeight: "700",
-    marginBottom: 2,
+    marginBottom: 0,
     textAlign: "center",
   },
   monthRow: {
@@ -422,6 +473,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 14,
+    marginTop: 0,
   },
   monthArrow: {
     padding: 6,

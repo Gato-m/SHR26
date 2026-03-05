@@ -149,9 +149,11 @@ export default function AddDataScreen() {
     [dateKey: string]: string;
   }>({});
   const [showCommentInput, setShowCommentInput] = useState(false);
+  const [isCommentInputMounted, setIsCommentInputMounted] = useState(false);
   const [isRangeHintMounted, setIsRangeHintMounted] = useState(false);
   const [currentCommentText, setCurrentCommentText] = useState("");
 
+  const commentSectionProgress = useRef(new Animated.Value(0)).current;
   const rangeHintProgress = useRef(new Animated.Value(0)).current;
   const infoPanelProgress = useRef(
     new Animated.Value(!isInfoPanelDismissedInSession ? 1 : 0),
@@ -166,6 +168,40 @@ export default function AddDataScreen() {
   > | null>(null);
 
   const shouldShowRangeHint = isRangeSelecting && Boolean(rangeStartDate);
+
+  useEffect(() => {
+    if (showCommentInput) {
+      if (!isCommentInputMounted) {
+        setIsCommentInputMounted(true);
+        commentSectionProgress.setValue(0);
+        return;
+      }
+
+      commentSectionProgress.stopAnimation();
+      Animated.timing(commentSectionProgress, {
+        toValue: 1,
+        duration: 240,
+        useNativeDriver: false,
+      }).start();
+
+      return;
+    }
+
+    if (!isCommentInputMounted) {
+      return;
+    }
+
+    commentSectionProgress.stopAnimation();
+    Animated.timing(commentSectionProgress, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (finished) {
+        setIsCommentInputMounted(false);
+      }
+    });
+  }, [showCommentInput, isCommentInputMounted, commentSectionProgress]);
 
   useEffect(() => {
     if (shouldShowRangeHint) {
@@ -502,6 +538,11 @@ export default function AddDataScreen() {
   }
 
   function openCommentInputForActiveDate() {
+    if (showCommentInput) {
+      closeCommentInput();
+      return;
+    }
+
     if (!activeDateKey) {
       Alert.alert(
         "Info",
@@ -529,6 +570,7 @@ export default function AddDataScreen() {
 
   function closeCommentInput() {
     setShowCommentInput(false);
+    setActiveDateKey("");
     setCurrentCommentText("");
   }
 
@@ -1125,59 +1167,76 @@ export default function AddDataScreen() {
             </TouchableOpacity>
           </ThemedView>
 
-          {showCommentInput && (
-            <ThemedCardSection
+          {isCommentInputMounted && (
+            <Animated.View
               style={{
-                borderColor: categoriesColor.slimiba,
-                borderWidth: 1,
-                padding: 10,
-                marginTop: 12,
+                opacity: commentSectionProgress,
+                marginTop: commentSectionProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 12],
+                }),
+                transform: [
+                  {
+                    translateY: commentSectionProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-8, 0],
+                    }),
+                  },
+                ],
               }}
             >
-              <ThemedView style={styles.commentInputContainer}>
-                <ThemedInput
-                  style={[
-                    styles.commentInputField,
-                    {
-                      backgroundColor: "transparent",
-                      borderColor: theme.colors.gray400,
-                    },
-                  ]}
-                  value={currentCommentText}
-                  onChangeText={setCurrentCommentText}
-                  placeholder="Īss komentārs"
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-                <ThemedView style={styles.commentInputButtonRow}>
-                  <TouchableOpacity
-                    style={[styles.commentButton, styles.commentButtonCancel]}
-                    onPress={closeCommentInput}
-                  >
-                    <Ionicons
-                      name="close-circle-outline"
-                      size={20}
-                      color={theme.colors.white}
-                    />
-                    <Text style={styles.commentButtonTextCancel}>Atcelt</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.commentButton, styles.commentButtonSubmit]}
-                    onPress={submitComment}
-                  >
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={20}
-                      color={theme.colors.white}
-                    />
-                    <Text style={styles.commentButtonTextSubmit}>
-                      Pievienot
-                    </Text>
-                  </TouchableOpacity>
+              <ThemedCardSection
+                style={{
+                  borderColor: categoriesColor.slimiba,
+                  borderWidth: 1,
+                  padding: 10,
+                }}
+              >
+                <ThemedView style={styles.commentInputContainer}>
+                  <ThemedInput
+                    style={[
+                      styles.commentInputField,
+                      {
+                        backgroundColor: "transparent",
+                        borderColor: theme.colors.gray400,
+                      },
+                    ]}
+                    value={currentCommentText}
+                    onChangeText={setCurrentCommentText}
+                    placeholder="Īss komentārs"
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                  />
+                  <ThemedView style={styles.commentInputButtonRow}>
+                    <TouchableOpacity
+                      style={[styles.commentButton, styles.commentButtonCancel]}
+                      onPress={closeCommentInput}
+                    >
+                      <Ionicons
+                        name="close-circle-outline"
+                        size={20}
+                        color={theme.colors.white}
+                      />
+                      <Text style={styles.commentButtonTextCancel}>Atcelt</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.commentButton, styles.commentButtonSubmit]}
+                      onPress={submitComment}
+                    >
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={20}
+                        color={theme.colors.white}
+                      />
+                      <Text style={styles.commentButtonTextSubmit}>
+                        Pievienot
+                      </Text>
+                    </TouchableOpacity>
+                  </ThemedView>
                 </ThemedView>
-              </ThemedView>
-            </ThemedCardSection>
+              </ThemedCardSection>
+            </Animated.View>
           )}
         </ThemedCardSection>
         <ThemedSpacer size="m" />
@@ -1189,6 +1248,22 @@ export default function AddDataScreen() {
                   styles.rangeHintAnimatedWrapper,
                   {
                     opacity: rangeHintProgress,
+                    maxHeight: rangeHintProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, 36],
+                    }),
+                    marginBottom: rangeHintProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, 8],
+                    }),
+                    transform: [
+                      {
+                        translateY: rangeHintProgress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [-6, 0],
+                        }),
+                      },
+                    ],
                   },
                 ]}
               >
@@ -1206,7 +1281,7 @@ export default function AddDataScreen() {
                     {
                       translateY: rangeHintProgress.interpolate({
                         inputRange: [0, 1],
-                        outputRange: [0, 8],
+                        outputRange: [0, 16],
                       }),
                     },
                   ],
@@ -1778,7 +1853,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   rangeHintAnimatedWrapper: {
-    overflow: "visible",
+    overflow: "hidden",
     paddingTop: 4,
   },
   calendarAnimatedWrapper: {

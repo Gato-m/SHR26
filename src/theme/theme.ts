@@ -16,9 +16,9 @@ export const LightPalette = {
   background: "#e2e2e2",
 };
 export const DarkPalette = {
-  primary: "#414446",
+  primary: "#3f4144",
   primaryDark: "#2f3340",
-  accent: "#d54e36",
+  accent: "#eb8537",
   gray100: "#0a0a0a",
   gray200: "#dbdddb",
   gray400: "#9a9b9b",
@@ -27,7 +27,7 @@ export const DarkPalette = {
   black: "#000000",
   text: "#eaeaea",
   textSecondary: "#b1a7a7",
-  background: "#22252b",
+  background: "#2e3032",
 };
 
 export const categoriesColor = {
@@ -57,7 +57,7 @@ export const createAppTheme = (palette: typeof LightPalette) =>
 
     borderRadii: {
       s: 4,
-      m: 8,
+      m: 12,
       l: 16,
       full: 999,
     },
