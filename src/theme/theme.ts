@@ -16,7 +16,7 @@ export const LightPalette = {
   background: "#e2e2e2",
 };
 export const DarkPalette = {
-  primary: "#3f4144",
+  primary: "#3c3e40",
   primaryDark: "#2f3340",
   accent: "#eb8537",
   gray100: "#0a0a0a",

@@ -17,6 +17,7 @@ export function ThemedCard({ style, children, ...rest }: ThemedCardProps) {
           backgroundColor: theme.colors.primary,
           padding: theme.spacing.m,
           borderRadius: theme.borderRadii.m,
+          borderColor: theme.colors.gray100,
           opacity: pressed ? 0.85 : 1,
         },
         style,

@@ -6,7 +6,6 @@ import { Linking, Pressable, ScrollView, TextInput, View } from "react-native";
 import { supabase } from "../../../lib/supabase";
 // import Icon from "react-native-vector-icons/Ionicons"; // Remove or replace if not used
 import {
-  ThemedButton,
   ThemedCard,
   ThemedHeaderUser,
   ThemedSpacer,
@@ -128,23 +127,16 @@ export default function DemoScreen() {
         <ThemedSpacer size="m" />
       </View>
 
-      <ThemedButton
-        label={
-          mode === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"
-        }
-        variant="primary"
-        onPress={toggle}
-      />
       <View
         style={{
           flexDirection: "row",
           alignItems: "center",
           position: "relative",
-          marginTop: 16,
+          marginTop: 0,
           marginBottom: 8,
           borderRadius: 8,
           borderWidth: 1,
-          borderColor: theme.colors.gray400,
+          borderColor: theme.colors.accent,
         }}
       >
         <View
@@ -159,7 +151,7 @@ export default function DemoScreen() {
           <Ionicons
             name="search"
             size={18}
-            color={theme.colors.textSecondary}
+            color={theme.colors.accent}
             marginRight={8}
           />
         </View>
